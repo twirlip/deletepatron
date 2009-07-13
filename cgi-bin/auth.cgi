@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 # a horribly hacked-together authentication mechanism for the Sitka deletepatron system
+use lib '..';
 use CGI qw/:standard/;
 use Sitka::DB;
 
