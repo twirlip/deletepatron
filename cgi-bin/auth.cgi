@@ -3,6 +3,8 @@
 use lib '..';
 use CGI qw/:standard/;
 use Sitka::DB;
+use OpenSRF::System;
+use OpenILS::Application::AppUtils;
 
 $q = new CGI;
 
@@ -17,17 +19,29 @@ if (param()) {
 	my $pwd = param('pwd');
 	print p("Username: $usr");
 
+  # TODO: do this via OpenSRF API rather than direct DB lookup
   my $db = Sitka::DB->connect();
-  my $usrdata = $db->selectrow_hashref("SELECT usrname, passwd FROM actor.usr WHERE usrname = ? and passwd = md5(?);", undef, ($usr, $pwd));
+  my $usrdata = $db->selectrow_hashref("SELECT usrname, passwd, ud, home_ou FROM actor.usr WHERE usrname = ? and passwd = md5(?);", undef, ($usr, $pwd));
   if ($usrdata) {
     print p("Authenticated!");
   } else {
     print p("FAIL!");
   }
 
+  # make sure this user has permission to delete users
+  OpenSRF::System->bootstrap_client( config_file => '/openils/conf/opensrf_core.xml');
+  my $apputils = OpenILS::Application::AppUtils;
+  my $usr_id  = $usrdata->{id};
+  my $home_ou = $usrdata->{home_ou};
+  if ($apputils->check_perms($usr_id, $home_ou, 'DELETE_USER')) {
+    print p("Sorry, this user doesn't seem to have that permission.\n");
+  } else {
+    print p("Yep, you can delete users.\n");
+  }
+
 }
 
-# TODO: Flag this session as authenticated, set $ou, and proceed to lookup.cgi
+# TODO: Flag this session as authenticated, set $ou, and proceed to input.cgi
 
 print p("All done!");
 print end_html;

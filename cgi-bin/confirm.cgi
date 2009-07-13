@@ -1,12 +1,25 @@
 #!/usr/bin/perl
-# lookup.cgi - retrieve patron info and check for activity
+# confirm.cgi - retrieve patron info, check for activity, and confirm that we want to delete 'em
 #
 # TODO:
 #   - generate HTML output
 #   - construct webform so user can confirm patron deletions
-
+use lib '..';
+use lib '/openils/lib/perl5';
 use CGI qw/:standard/;
-use Sitka::Patron;
+#use Sitka::Patron;
+use OpenSRF::System;
+use OpenILS::Application::AppUtils;
+use Data::Dumper;
+
+$q = new CGI;
+
+print header,
+			start_html('Looking Up Patron'),
+			h1('Looking Up...');
+
+OpenSRF::System->bootstrap_client( config_file => '/openils/conf/opensrf_core.xml');
+my $apputils = OpenILS::Application::AppUtils;
 
 # Message codes:
 # OK                 => Patron can be deleted.
@@ -33,6 +46,10 @@ if (param()) {
     }
   }
 }
+
+# TODO: form to confirm deletions (action="delete.cgi") based on results of the above checks
+
+print end_html;
 
 sub clean_and_validate {
   my @input = @_;
