@@ -2,23 +2,30 @@
 # a horribly hacked-together authentication mechanism for the Sitka deletepatron system
 use lib '..';
 use lib '/openils/lib/perl5/';
-use CGI qw/:standard/;
+use CGI;
+use CGI::Session;
 use Sitka::DB;
 use OpenSRF::System;
 use OpenILS::Application::AppUtils;
 use Data::Dumper;
 
-$q = new CGI;
+$cgi = new CGI;
 
-print header,
-			start_html('Authentication'),
-			h1('Authenticating...');
+@fail = ();
+push @fail, 'MISSING_PARAMS' unless (param('usr') && param('pwd'));
 
-fail('Please login.') unless (param()); # TODO: write a messaging system to handle fail() msgs
+my $usr = $cgi->param('usr');
+my $pwd = $cgi->param('pwd');
 
-if (param()) {
-	my $usr = param('usr');
-	my $pwd = param('pwd');
+fail() unless (authenticate($usr, $pwd));
+
+# TODO: Flag this session as authenticated, set $ou, and proceed to input.cgi
+print $cgi->header( -cookie=>$cookie );
+
+# returns session ID if user is authenticated, else returns nothing
+sub authenticate {
+  my $usr = shift;
+  my $pwd = shift;
   my $usr_id;
   my $home_ou;
 
@@ -29,35 +36,34 @@ if (param()) {
     $usr_id  = $usrdata->{id};
     $home_ou = $usrdata->{home_ou};
   } else {
-    print p("AUTHENTICATION FAIL!");
-    exit;
+    push @fail, 'INVALID_LOGIN';
+    return;
   }
 
   # make sure this user has permission to delete users
-  print p("User $usr (ID $usr_id, home library $home_ou) is authenticated.");
-  print p("Checking for DELETE_USER permission...");
   OpenSRF::System->bootstrap_client( config_file => '/openils/conf/opensrf_core.xml');
   my $apputils = OpenILS::Application::AppUtils;
   my $p = $apputils->check_perms($usr_id, $home_ou, 'DELETE_USER');
-  print pre(Dumper($p));
   if ($p) {
-    print p($p->{textcode} . ": " . $p->{desc});
-  } else {
-    print p("Yep, you can delete users.\n");
+    push @fail, 'MISSING_PERMS: ' . $p->{textcode} . ": " . $p->{desc};
+    return;
   }
 
+  # user is authenticated! create a session and cookie
+  $session = new CGI::Session("driver:File", undef, {Directory=>"/tmp"});
+  $cookie = $cgi->cookie(CGISESSID => $session->id);
+  return $session->id;
 }
 
-# TODO: Flag this session as authenticated, set $ou, and proceed to input.cgi
-
-print p("All done!");
-print end_html;
-
+# TODO: write a proper messaging system in Sitka.pm to handle fail() msgs
 sub fail {
-	my $msg = shift;
-	print $q->h1('Error'),
-				$q->p($msg),
-				$q->end_html;
-	exit;
+  print $cgi->header,
+        $cgi->start_html('Error'),
+        $cgi->h1('Error');
+  foreach $failmsg (@fail) {
+    print $cgi->p($failmsg);
+  }
+  print $cgi->end_html;
+  exit;
 }
 
