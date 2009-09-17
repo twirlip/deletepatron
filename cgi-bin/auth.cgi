@@ -3,7 +3,7 @@
 use lib '..';
 use lib '/openils/lib/perl5/';
 use CGI;
-use CGI::Session;
+use CGI::Session qw/-ip-match/;
 use Sitka::DB;
 use OpenSRF::System;
 use OpenILS::Application::AppUtils;
@@ -12,15 +12,19 @@ use Data::Dumper;
 $cgi = new CGI;
 
 @fail = ();
-push @fail, 'MISSING_PARAMS' unless (param('usr') && param('pwd'));
+push @fail, 'MISSING_PARAMS' unless ($cgi->param('usr') && $cgi->param('pwd'));
 
 my $usr = $cgi->param('usr');
 my $pwd = $cgi->param('pwd');
 
-fail() unless (authenticate($usr, $pwd));
+my $session = authenticate($usr, $pwd);
+login() unless ($session);
+$cookie = $cgi->cookie(CGISESSID => $session->id);
 
-# TODO: Flag this session as authenticated, set $ou, and proceed to input.cgi
 print $cgi->header( -cookie=>$cookie );
+print $cgi->start_html('Authenticated!'),
+      $cgi->h1('User has been authenticated.'),
+      $cgi->end_html;
 
 # returns session ID if user is authenticated, else returns nothing
 sub authenticate {
@@ -49,10 +53,15 @@ sub authenticate {
     return;
   }
 
-  # user is authenticated! create a session and cookie
-  $session = new CGI::Session("driver:File", undef, {Directory=>"/tmp"});
-  $cookie = $cgi->cookie(CGISESSID => $session->id);
-  return $session->id;
+  # user is authenticated! create a session
+  my $session = new CGI::Session("driver:File", undef, {Directory=>"/tmp"});
+  $session->expire('+15m');
+
+  # save user's home org unit for future use
+  # TODO: this should actually be an array of OUIDs for which user has delete permissions
+  $session->param('ou', $home_ou);
+
+  return $session;
 }
 
 # TODO: write a proper messaging system in Sitka.pm to handle fail() msgs
@@ -67,3 +76,21 @@ sub fail {
   exit;
 }
 
+sub login {
+  my @msgs = shift;
+  print $cgi->header,
+        $cgi->start_html('Sitka Patron Deletions - Login'),
+        $cgi->h1('Please Login');
+  foreach my $msg (@msgs) {
+    while (my ($msgtype, $msgtext) = each %{$msg}) {
+      print $cgi->div({-class=>$msgtype},$msgtext);
+    }
+  }
+  print $cgi->start_form( -method=>'POST', -action=>$cgi->script_name() );
+  print $cgi->textfield('usr'),
+        $cgi->password_field('pwd'),
+        $cgi->submit('submit','Login');
+  print $cgi->end_form();
+  print $cgi->end_html();
+  exit;
+}
