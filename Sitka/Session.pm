@@ -1,5 +1,7 @@
 #!/usr/bin/perl
-use lib '..';
+package Sitka::Session;
+use FindBin;
+use lib "$FindBin::Bin/..";
 use lib '/openils/lib/perl5/';
 use CGI;
 use CGI::Session qw/-ip-match/;
@@ -7,7 +9,14 @@ use Sitka::DB;
 use OpenSRF::System;
 use OpenILS::Application::AppUtils;
 
-# returns session ID if user is authenticated, else returns nothing
+sub new {
+  my $usr = shift;
+  my $pwd = shift;
+  my $session = authenticate($usr, $pwd);
+  login() unless ($session);
+  return $session;
+}
+
 sub authenticate {
   my $usr = shift;
   my $pwd = shift;
@@ -59,6 +68,7 @@ sub fail {
 
 sub login {
   my @msgs = shift;
+  my $cgi = CGI->new;
   print $cgi->header,
         $cgi->start_html('Sitka Patron Deletions - Login'),
         $cgi->h1('Please Login');
