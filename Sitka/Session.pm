@@ -67,17 +67,19 @@ sub fail {
 }
 
 sub login {
-  my @msgs = shift;
+  my $msgs = shift;
+  my $destination = shift || undef;
   my $cgi = CGI->new;
+  $destination = $cgi->script_name() if (!$destination);
   print $cgi->header,
         $cgi->start_html('Sitka Patron Deletions - Login'),
         $cgi->h1('Please Login');
-  foreach my $msg (@msgs) {
+  foreach my $msg (@{$msgs}) {
     while (my ($msgtype, $msgtext) = each %{$msg}) {
       print $cgi->div({-class=>$msgtype},$msgtext);
     }
   }
-  print $cgi->start_form( -method=>'POST', -action=>$cgi->script_name() );
+  print $cgi->start_form( -method=>'POST', -action=>$destination );
   print $cgi->textfield('usr'),
         $cgi->password_field('pwd'),
         $cgi->submit('submit','Login');
