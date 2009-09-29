@@ -43,15 +43,9 @@ sub authenticate {
     return;
   }
 
-  # user is authenticated! create a session
-  my $session = new CGI::Session("driver:File", undef, {Directory=>"/tmp"});
-  $session->expire('+15m');
-
-  # save user's home org unit for future use
-  # TODO: this should actually be an array of OUIDs for which user has delete permissions
-  $session->param('ou', $home_ou);
-
-  return $session;
+  # user is authenticated!
+  # TODO: return a list of OUIDs for which user has permission to delete users
+  return $home_ou;
 }
 
 # TODO: write a proper messaging system in Sitka.pm to handle fail() msgs
