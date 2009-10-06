@@ -1,11 +1,13 @@
 #!/usr/bin/perl
-package Patron;
+package Sitka::Patron;
 use Sitka::DB;
 
 sub new {
+  my $class = shift;
   my $barcode = shift;
   my $ou = shift || 0;
   my $self = {};
+  bless $self, $class;
   $self->barcode     => $barcode;
   $self->ou          => $ou;
   $self->usrid       => 0;
@@ -14,14 +16,14 @@ sub new {
   $self->circs       => 0;
   $self->holds       => 0;
   $self->fines       => 0;
-  $self->msgs        => [];
+  $self->msgs        => ();
   return $self;
 }
 
 # get patron data from DB
 sub retrieve {
   my $self = shift;
-  my $q = Sitka::DB->new;
+  my $q = Sitka::DB->connect;
   # TODO: check DB for patron; maybe use SIP for this???
   if (@result) {
     $self->usrid($result->{usr});
@@ -36,7 +38,7 @@ sub retrieve {
 # check for active circs and holds
 sub check_activity {
   my $self = shift;
-  my $q = Sitka::DB->new;
+  my $q = Sitka::DB->connect;
   my %checks = (
     'circs' => "SELECT count(*) FROM action.circulation WHERE usr = ? AND xact_finish IS NULL;",
     'holds' => "SELECT count(*) FROM action.hold_request WHERE usr = ? AND cancel_time IS NULL AND fulfillment_time IS NULL AND checkin_time IS NULL;",
@@ -53,7 +55,7 @@ sub check_activity {
 
 sub check_fines {
   my $self = shift;
-  my $q = Sitka::DB->new;
+  my $q = Sitka::DB->connect;
   my $fines = $q->lookup("SELECT balance_owed FROM money.usr_summary WHERE usr = ? AND balance_owed > 0;", $self->{usrid});
   if ($fines > 0) {
     $self->fines = $fines;
@@ -85,10 +87,10 @@ sub givenname {
   return $self->{givenname};
 }
 
-sub surname {
+sub familyname {
   my $self = shift;
-  if (@_) { $self->{surname} = shift; }
-  return $self->{surname};
+  if (@_) { $self->{familyname} = shift; }
+  return $self->{familyname};
 }
 
 sub circs {
@@ -111,7 +113,7 @@ sub fines {
 
 sub msgs {
   my $self = shift;
-  if (@_) { push $self->{msgs}, @_; }
+  if (@_) { push @{$self->{msgs}}, @_; }
   return $self->{msgs};
 }
 
