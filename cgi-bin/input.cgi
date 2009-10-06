@@ -14,7 +14,7 @@ my $pwd = $cgi->param('pwd');
 my $session = Sitka::Session->new;
 $session->authenticate($usr, $pwd);
 
-if (!$session->{ou}) {
+if (!$session->{authenticated}) {
 
   push my @msgs, { error => 'OU_NOT_FOUND' };
   Sitka::Session->login(\@msgs);

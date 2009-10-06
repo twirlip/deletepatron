@@ -42,8 +42,9 @@ sub authenticate {
     # user is authenticated!
     $self->initialize_session();
     $self->{cgisession}->param('_IS_LOGGED_IN', 1);
+    $self->{authenticated} = 1;
     # TODO: return a list of OUIDs for which user has permission to delete users
-    $self->{ou} = $usrdata->{home_ou};
+    $self->{cgisession}->param('ou', $usrdata->{home_ou});
   } 
   $self->{fail} = \@fail;
   return; 
