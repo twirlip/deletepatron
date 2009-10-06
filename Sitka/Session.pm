@@ -23,6 +23,8 @@ sub new {
 sub create_session {
   my $self = shift;
   $self->{cgisession} = new CGI::Session() or die CGI::Session->errstr;
+  # don't bother with an _IS_LOGGED_IN flag, just expire the entire session after 10 minutes
+  $self->{cgisession}->expire('+10m');
   return;
 }
 
@@ -44,7 +46,7 @@ sub authenticate {
 }
 
 sub check_password {
-  my ($usr, $pwd) = @_;
+  my ($usr, $pwd) = @_; # no $self param here, and yet it's needed by check_perms() ... I don't get it.
 
   # TODO: do this via OpenSRF API rather than direct DB lookup
   my $db = Sitka::DB->connect();
