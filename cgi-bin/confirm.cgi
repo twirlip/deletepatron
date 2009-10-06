@@ -19,7 +19,7 @@ my $session = Sitka::Session->new;
 # NB: we need to ensure that this cookie is valid specifically for patron deletions
 # (can't just accept any cookie on the given domain)
 my $sid = $cgi->cookie('CGISESSID') || undef;
-$session->cgi_session($sid);
+$session->initialize_session($sid);
 $session->login( [{error => 'NOT_LOGGED_IN'}] ) unless ($session->{cgisession}->param('_IS_LOGGED_IN'));
 
 print header,
@@ -32,10 +32,10 @@ print header,
 # FAIL_ACTIVE_XACTS  => Patron has active circulations or holds.
 # FAIL_HAS_FINES     => Patron owes more than $0 in fines.
 
-$ou = 0; # set this to authenticated user's OU? or more complex for multibranch?
+$ou = $session->{cgisession}->param('ou') || 0; # set this to authenticated user's OU? or more complex for multibranch?
 
 if (param()) {
-  fail('No org unit specified.') unless ($ou);
+  die('No org unit specified.') unless ($ou);
   my @input = split(/\n/, param('barcodes'));
   my (@patrons, @not_found);
   my @barcodes = clean_and_validate(@input);
@@ -72,10 +72,10 @@ if (!@patrons) {
   foreach my $patron (@patrons) {
     my @msgs;
     my $checked = ( $patron->msgs ? 'checked' : undef );
-    if ( grep {'FAIL_ACTIVE_XACTS' eq $_} $self->msgs ) {
-      push @msgs, 'Patron has ', ($patron->circs || '0'), ' active circulations and ', ($patron->holds || '0') ' active holds.';
+    if ( grep {'FAIL_ACTIVE_XACTS' eq $_} $patron->msgs ) {
+      push @msgs, 'Patron has ', ($patron->circs || '0'), ' active circulations and ', ($patron->holds || '0'), ' active holds.';
     }
-    if ( grep {'FAIL_HAS_FINES' eq $_} $self->msgs ) {
+    if ( grep {'FAIL_HAS_FINES' eq $_} $patron->msgs ) {
       push @msgs, 'Patron has $', $patron->fines, ' in unpaid fines.';
     }
 
