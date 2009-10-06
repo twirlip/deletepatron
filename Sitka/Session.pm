@@ -8,6 +8,7 @@ use CGI::Session qw/-ip-match/;
 use Sitka::DB;
 use OpenSRF::System;
 use OpenILS::Application::AppUtils;
+use File::Spec;
 
 our @fail;
 
@@ -20,9 +21,11 @@ sub new {
   return $self;
 }
 
-sub create_session {
+sub initialize_session {
   my $self = shift;
-  $self->{cgisession} = new CGI::Session() or die CGI::Session->errstr;
+  my $sid = shift || undef;
+  # initialize existing CGI session ($sid) or create new CGI session if none exists
+  $self->{cgisession} = new CGI::Session(undef, $sid, {Directory=>File::Spec->tmpdir}) or die CGI::Session->errstr;
   # don't bother with an _IS_LOGGED_IN flag, just expire the entire session after 10 minutes
   $self->{cgisession}->expire('+10m');
   return;
@@ -37,8 +40,9 @@ sub authenticate {
   }
   if ($has_perms) {
     # user is authenticated!
+    $self->initialize_session();
+    $self->{cgisession}->param('_IS_LOGGED_IN', 1);
     # TODO: return a list of OUIDs for which user has permission to delete users
-    $self->create_session();
     $self->{ou} = $usrdata->{home_ou};
   } 
   $self->{fail} = \@fail;

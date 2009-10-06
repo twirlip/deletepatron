@@ -8,9 +8,19 @@ use FindBin;
 use lib "$FindBin::Bin/..";
 use lib '/openils/lib/perl5';
 use CGI qw/:standard/;
+use CGI::Session qw/-ip-match/;
+use Sitka::Session;
 use Sitka::Patron;
 
-$cgi = new CGI;
+my $cgi = CGI->new;
+my $session = Sitka::Session->new;
+
+# TODO: check for authorization (i.e. see if user has a valid cookie)
+# NB: we need to ensure that this cookie is valid specifically for patron deletions
+# (can't just accept any cookie on the given domain)
+my $sid = $cgi->cookie('CGISESSID') || undef;
+$session->cgi_session($sid);
+$session->login( [{error => 'NOT_LOGGED_IN'}] ) unless ($session->{cgisession}->param('_IS_LOGGED_IN'));
 
 print header,
 			start_html('Looking Up Patron'),
@@ -101,11 +111,5 @@ sub clean_and_validate {
   }
   # TODO: remove duplicates from output
   return @output;
-}
-
-sub fail {
-  my $msg = shift;
-  print $msg;
-  exit;
 }
 
