@@ -1,0 +1,14 @@
+<p>Use the checkboxes to indicate which patrons you want to delete.</p>
+<table id="rows-confirm">
+<!-- TMPL_LOOP NAME=ROWS -->
+  <tr>
+    <td><input type="checkbox" name="delete" <!-- TMPL_VAR NAME=CHECKBOX --></td>
+    <td><!-- TMPL_VAR NAME=BARCODE --></td>
+    <td><!-- TMPL_VAR NAME=PATRONNAME --></td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td><!-- TMPL_VAR NAME=MSGS --></td>
+  </tr>
+<!-- /TMPL_LOOP -->
+</table>

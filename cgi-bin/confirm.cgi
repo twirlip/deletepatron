@@ -9,6 +9,7 @@ use lib "$FindBin::Bin/..";
 use lib '/openils/lib/perl5';
 use CGI qw/:standard/;
 use CGI::Session qw/-ip-match/;
+use HTML::Template;
 use Sitka::Session;
 use Sitka::Patron;
 
@@ -63,31 +64,36 @@ if (!@patrons) {
 } else {
 
   # form to confirm deletions (action="delete.cgi") based on results of the above checks
-  print $cgi->start_form( -method => 'POST', -action => 'delete.cgi' ),
-        $cgi->p('Use the checkboxes to indicate which patrons you want to delete.'),
-        $cgi->start_table;
+  print $cgi->start_form( -method => 'POST', -action => 'delete.cgi' );
 
+  my $rows; # array reference for patron data to be used by HTML::Template
   foreach my $patron (@patrons) {
     my @msgs;
-    my $checked = ( $patron->msgs ? 'checked' : undef );
+    my $checkbox = 'checked';
     if ( grep {'FAIL_ACTIVE_XACTS' eq $_} $patron->msgs ) {
       push @msgs, 'Patron has ', ($patron->circs || '0'), ' active circulations and ', ($patron->holds || '0'), ' active holds.';
+      $checkbox = 'disabled';
     }
     if ( grep {'FAIL_HAS_FINES' eq $_} $patron->msgs ) {
       push @msgs, 'Patron has $', $patron->fines, ' in unpaid fines.';
+      undef $checkbox unless ($checkbox == 'disabled');
     }
 
-    # output as HTML
-    print $cgi->tr(
-      $cgi->td($cgi->checkbox($checked)),
-      $cgi->td(
-        $cgi->p( join(', ', ($patron->familyname, $patron->givenname)) ),
-        $cgi->div( join($cgi->br, @msgs ) )
-      )
-    );
+    # TODO: eliminate HTML gobbledygook below
+    push @{$rows}, {
+      checkbox   => ($checkbox ? "$checkbox=\"$checkbox\"" : undef),
+      barcode    => $patron->barcode,
+      patronname => join(', ', ($patron->familyname, $patron->givenname)),
+      msgs       => $cgi->div(join('<br />', @msgs)),
+    };
+
   }
 
-  print $cgi->end_table;
+  # print patron info with the magic of HTML::Template
+  my $template = HTML::Template->new(filename => 'rows-confirm.tmpl');
+  $template->param(ROWS => $rows);
+  print $template->output();
+
   print $cgi->submit('submit','Delete Checked Patrons'),
         $cgi->end_form();
 }
