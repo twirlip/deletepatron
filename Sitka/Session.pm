@@ -55,7 +55,7 @@ sub check_password {
 
   # TODO: do this via OpenSRF API rather than direct DB lookup
   my $db = Sitka::DB->connect();
-  my $usrdata = $db->selectrow_hashref("SELECT id, usrname, passwd, home_ou FROM actor.usr WHERE usrname = ? and passwd = md5(?);", undef, ($usr, $pwd));
+  my $usrdata = $db->{dbh}->selectrow_hashref("SELECT id, usrname, passwd, home_ou FROM actor.usr WHERE usrname = ? and passwd = md5(?);", undef, ($usr, $pwd));
   if ($usrdata) {
     return $usrdata;
   } else {
