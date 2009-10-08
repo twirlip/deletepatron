@@ -33,4 +33,12 @@ sub lookup {
   return $result;
 }
 
+sub do {
+  my $self = shift;
+  my $sql = shift;
+  my @params = @_;
+  my $rows_affected = $self->{dbh}->do($sql, @params);
+  return $rows_affected;
+}
+
 1; # perl is stupid.
