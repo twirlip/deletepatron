@@ -5,7 +5,7 @@ use Sitka::DB;
 sub new {
   my $class = shift;
   my $barcode = shift;
-  my $ou = shift || 0;
+  my $ou = shift;
   my $self = {};
   bless $self, $class;
   bless $self;
@@ -25,14 +25,19 @@ sub new {
 sub retrieve {
   my $self = shift;
   my $q = Sitka::DB->connect;
-  # TODO: check DB for patron; maybe use SIP for this???
-  if (@result) {
+  # TODO: use open-ils.actor.user.retrieve OpenSRF call instead of direct DB query 
+  # (requires an OpenSRF login_session, so need to make this app's auth process use OpenSRF first)
+  my $sql = 'SELECT u.id as usr, u.first_given_name, u.family_name FROM actor.usr u 
+    JOIN actor.card c ON c.usr = u.id WHERE u.home_ou = ? AND c.barcode = ?;';
+  my $result = $q->lookup($sql, $self->ou, $self->barcode);
+  if ($result) {
     $self->usrid($result->{usr});
     $self->givenname($result->{first_given_name});
     $self->familyname($result->{family_name});
     return $self;
   } else {
     $self->msgs('FAIL_NOT_FOUND');
+    return;
   }
 }
 
@@ -41,12 +46,13 @@ sub check_activity {
   my $self = shift;
   my $q = Sitka::DB->connect;
   my %checks = (
-    'circs' => "SELECT count(*) FROM action.circulation WHERE usr = ? AND xact_finish IS NULL;",
-    'holds' => "SELECT count(*) FROM action.hold_request WHERE usr = ? AND cancel_time IS NULL AND fulfillment_time IS NULL AND checkin_time IS NULL;",
+    'circs' => "SELECT count(*) AS count FROM action.circulation WHERE usr = ? AND xact_finish IS NULL;",
+    'holds' => "SELECT count(*) AS count FROM action.hold_request WHERE usr = ? AND cancel_time IS NULL AND fulfillment_time IS NULL AND checkin_time IS NULL;",
   );
   foreach $check (keys (%checks)) {
     my $sql = $checks{$check};
-    my $check_count = $q->lookup($sql, $self->usrid);
+    my $result = $q->lookup($sql, $self->usrid);
+    my $check_count = $result->{count};
     if ($check_count > 0) {
       $self->$check = $check_count;
       $self->msgs('FAIL_ACTIVE_XACTS') unless ( grep {'FAIL_ACTIVE_XACTS' eq $_} $self->{msgs} );
@@ -57,7 +63,8 @@ sub check_activity {
 sub check_fines {
   my $self = shift;
   my $q = Sitka::DB->connect;
-  my $fines = $q->lookup("SELECT balance_owed FROM money.usr_summary WHERE usr = ? AND balance_owed > 0;", $self->{usrid});
+  my $result = $q->lookup("SELECT balance_owed FROM money.usr_summary WHERE usr = ? AND balance_owed > 0;", $self->{usrid});
+  my $fines = $result->{balance_owed};
   if ($fines > 0) {
     $self->fines = $fines;
     $self->msgs('FAIL_HAS_FINES');

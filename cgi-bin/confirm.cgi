@@ -12,6 +12,7 @@ use CGI::Session qw/-ip-match/;
 use HTML::Template;
 use Sitka::Session;
 use Sitka::Patron;
+use Data::Dumper;
 
 my $cgi = CGI->new;
 my $session = Sitka::Session->new;
@@ -29,7 +30,7 @@ $session->login( [{error => 'NOT_LOGGED_IN'}] ) unless ($session->{cgisession}->
 # FAIL_ACTIVE_XACTS  => Patron has active circulations or holds.
 # FAIL_HAS_FINES     => Patron owes more than $0 in fines.
 
-$ou = $session->{cgisession}->param('ou') || 0; # set this to authenticated user's OU? or more complex for multibranch?
+my $ou = $session->{cgisession}->param('ou') || 0; # set this to authenticated user's OU? or more complex for multibranch?
 
 my @patrons; 
 my @not_found;
@@ -37,10 +38,9 @@ my @not_found;
 if (param()) {
   die('No org unit specified.') unless ($ou);
   my @barcodes = clean_and_validate($cgi->param('barcodes'));
-  warn 'cleaned and validated barcodes: ' . join(', ', @barcodes);
   while (@barcodes) {
     my $barcode = shift @barcodes;
-    my $patron = Sitka::Patron->new($barcode);
+    my $patron = Sitka::Patron->new($barcode, $ou);
     if ($patron->retrieve()) {
       $patron->check_activity();
       $patron->check_fines();
@@ -107,14 +107,12 @@ print end_html;
 
 sub clean_and_validate {
   my $input = shift;
-  my @barcodes = split(/\n/, $input);
+  my @barcodes = split(/[\r\n]+/, $input);
   my @clean_barcodes;
   foreach my $barcode (@barcodes) {
-    warn "current barcode: $barcode";
     next if ($barcode =~ /^\s*$/); # discard blank lines
     # TODO: clean up and validate barcodes
     push (@clean_barcodes, $barcode);
-    warn "all clean barcodes so far: " . join(', ', @clean_barcodes);
   }
   # remove duplicate barcodes
   my %hash = map {$_ => 1} @clean_barcodes;

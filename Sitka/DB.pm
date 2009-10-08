@@ -24,13 +24,13 @@ sub connect {
   return $self;
 }
 
-# look up a single value in the database (one field from one row)
+# retrieve a single row from the database
 sub lookup {
   my $self = shift;
   my $sql = shift;
-  my @params = @_ || undef;
-  my $result = $self->{dbh}->selectrow_arrayref($sql, undef, @params);
-  return ${$result}[0];
+  my @params = @_;
+  my $result = $self->{dbh}->selectrow_hashref($sql, undef, @params);
+  return $result;
 }
 
 1; # perl is stupid.
