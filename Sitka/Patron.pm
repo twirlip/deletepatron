@@ -8,15 +8,16 @@ sub new {
   my $ou = shift || 0;
   my $self = {};
   bless $self, $class;
-  $self->barcode     => $barcode;
-  $self->ou          => $ou;
-  $self->usrid       => 0;
-  $self->givenname   => undef;
-  $self->familyname  => undef;
-  $self->circs       => 0;
-  $self->holds       => 0;
-  $self->fines       => 0;
-  $self->msgs        => ();
+  bless $self;
+  $self->{barcode}     = $barcode;
+  $self->{ou}          = $ou;
+  $self->{usrid}       = 0;
+  $self->{givenname}   = undef;
+  $self->{familyname}  = undef;
+  $self->{circs}       = 0;
+  $self->{holds}       = 0;
+  $self->{fines}       = 0;
+  $self->{msgs}        = ();
   return $self;
 }
 
