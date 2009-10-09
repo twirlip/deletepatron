@@ -51,6 +51,10 @@ if (param()) {
   }
 }
 
+# store patron info in session for future use (specifically, reporting on what has been deleted)
+$session->{cgisession}->param('patrons', \@patrons);
+$session->{cgisession}->param('not_found', \@not_found);
+
 print $cgi->header,
       $cgi->start_html('Confirm Deletions'),
       $cgi->h1('Confirm Deletions');
