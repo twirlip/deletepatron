@@ -1,9 +1,5 @@
 #!/usr/bin/perl
 # confirm.cgi - retrieve patron info, check for activity, and confirm that we want to delete 'em
-#
-# TODO:
-#   - generate HTML output
-#   - construct webform so user can confirm patron deletions
 use FindBin;
 use lib "$FindBin::Bin/..";
 use lib '/openils/lib/perl5';
@@ -17,7 +13,7 @@ use Data::Dumper;
 my $cgi = CGI->new;
 my $session = Sitka::Session->new;
 
-# TODO: check for authorization (i.e. see if user has a valid cookie)
+# check for authorization (i.e. see if user has a valid cookie)
 # NB: we need to ensure that this cookie is valid specifically for patron deletions
 # (can't just accept any cookie on the given domain)
 my $sid = $cgi->cookie('CGISESSID') || undef;
@@ -26,6 +22,7 @@ $session->login( [{error => 'NOT_LOGGED_IN'}] ) unless ($session->{cgisession}->
 
 # Message codes:
 # OK                 => Patron can be deleted.
+# INVALID_BARCODE    => Barcode entered by user is in an invalid format.
 # FAIL_NOT_FOUND     => Patron does not exist or does not belong to this library.
 # FAIL_ACTIVE_XACTS  => Patron has active circulations or holds.
 # FAIL_HAS_FINES     => Patron owes more than $0 in fines.
@@ -34,6 +31,7 @@ my $ou = $session->{cgisession}->param('ou') || 0; # set this to authenticated u
 
 my %patrons; 
 my @not_found;
+my @invalid;
 
 if (param()) {
   die('No org unit specified.') unless ($ou);
@@ -54,6 +52,7 @@ if (param()) {
 # store patron info in session for future use (specifically, reporting on what has been deleted)
 $session->{cgisession}->param('patrons', \%patrons);
 $session->{cgisession}->param('not_found', \@not_found);
+$session->{cgisession}->param('invalid', \@invalid);
 
 print $cgi->header,
       $cgi->start_html('Confirm Deletions'),
@@ -115,7 +114,13 @@ sub clean_and_validate {
   my @clean_barcodes;
   foreach my $barcode (@barcodes) {
     next if ($barcode =~ /^\s*$/); # discard blank lines
-    # TODO: clean up and validate barcodes
+    $barcode =~ s/^\s+//;
+    $barcode =~ s/\s+$//;
+    unless ($barcode =~ /^[\w-]+$/) {
+      $barcode = $cgi->escapeHTML($barcode);
+      push @invalid, $barcode;
+      next;
+    }
     push (@clean_barcodes, $barcode);
   }
   # remove duplicate barcodes

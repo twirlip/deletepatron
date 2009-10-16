@@ -19,17 +19,15 @@ $session->initialize_session($sid);
 $session->login( [{error => 'NOT_LOGGED_IN'}] ) unless ($session->{cgisession}->param('_IS_LOGGED_IN'));
 
 my $patrons = $session->{cgisession}->param('patrons');
-my $not_found = $session->{cgisession}->param('not_found');
-
+my @not_found = @{$session->{cgisession}->param('not_found')};
+my @invalid = @{$session->{cgisession}->param('invalid')};
 my @deleted;
 my @not_deleted;
 
-# TODO: delete selected patrons from database
+# delete selected patrons from database
 if ($cgi->param()) {
-  warn Dumper $cgi->param('delete[]');
   foreach my $barcode ($cgi->param('delete[]')) {
     my $patron = $patrons->{$barcode};
-    warn Dumper $patron;
     my $usr_rows_updated = $patron->delete_patron();
     if ($usr_rows_updated) {
       push @deleted, $patron->barcode;
