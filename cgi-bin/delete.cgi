@@ -38,10 +38,11 @@ if ($cgi->param()) {
 }
 
 # report back on what we just did
-print $cgi->header, $cgi->start_html('Deletion Report');
-print $cgi->h1('Deleted'), $cgi->p(join("<br/>",@deleted));
-print $cgi->h1('Not Deleted'), $cgi->p(join("<br/>",@not_deleted));
-print $cgi->hi('Not Found'), $cgi->p(join("<br/>",@{$not_found}));
+print $cgi->header, $cgi->start_html('Deletion Report'), $cgi->h1('Deletion Report');
+print $cgi->h2('Deleted'),     $cgi->pre( @deleted ? join("\n",@deleted) : 'No patrons were deleted.' );
+print $cgi->h2('Not Deleted'), $cgi->pre(join("\n",@not_deleted)) if (@not_deleted);
+print $cgi->h2('Not Found'),   $cgi->pre(join("\n",@not_found))   if (@not_found);
+print $cgi->h2('Invalid'),     $cgi->pre(join("\n",@invalid))     if (@invalid);
 print $cgi->end_html;
 
 # delete this session for security reasons

@@ -101,10 +101,9 @@ if (!%patrons) {
         $cgi->end_form();
 }
 
-# list barcodes not found in system
-print $cgi->h2('Not Found'),
-      $cgi->p('The following barcodes were not found in Evergreen:'),
-      $cgi->pre( join("\n", @not_found) );
+# list invalid barcodes and barcodes not found in system
+print $cgi->h2('Not Found'), $cgi->p('The following barcodes were not found in Evergreen:'), $cgi->pre( join("\n", @not_found) ) if (@not_found);
+print $cgi->h2('Invalid Barcodes'), $cgi->p('The following barcodes were entered in an invalid format:'), $cgi->pre( join("\n", @invalid) ) if (@invalid);
 
 print end_html;
 
