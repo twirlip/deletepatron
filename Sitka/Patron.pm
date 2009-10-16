@@ -49,7 +49,7 @@ sub check_activity {
     'circs' => "SELECT count(*) AS count FROM action.circulation WHERE usr = ? AND xact_finish IS NULL;",
     'holds' => "SELECT count(*) AS count FROM action.hold_request WHERE usr = ? AND cancel_time IS NULL AND fulfillment_time IS NULL AND checkin_time IS NULL;",
   );
-  foreach $check (keys (%checks)) {
+  foreach my $check (keys (%checks)) {
     my $sql = $checks{$check};
     my $result = $q->lookup($sql, $self->usrid);
     my $check_count = $result->{count};
@@ -77,12 +77,13 @@ sub delete_patron {
   my $self = shift;
   my $q = Sitka::DB->connect;
   # the following returns the number of rows affected, or undef if no rows were affected
-  my $usr_rows_updated = $q->do( q{
+  my $usr_rows_updated = $q->{dbh}->do( q{
       UPDATE actor.usr SET deleted = 't', active = 'f' FROM actor.card c 
-      WHERE c.usr = actor.usr.id AND actor.usr.id = ? AND c.barcode = ?;
-    }, $self->usrid, $self->barcode);
+      WHERE c.usr = actor.usr.id AND actor.usr.id = ? AND c.barcode = ?
+    }, {}, $self->{usrid}, $self->{barcode} );
   $self->msgs('USER_NOT_DELETED') unless ($usr_rows_updated);
-  my $card_rows_deleted = $self->delete_card;
+  #my $card_rows_deleted = $self->delete_card;
+  $q->{dbh}->do('COMMIT');
   return $usr_rows_updated;
 }
 
