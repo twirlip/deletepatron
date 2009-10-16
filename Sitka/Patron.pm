@@ -28,7 +28,7 @@ sub retrieve {
   # TODO: use open-ils.actor.user.retrieve OpenSRF call instead of direct DB query 
   # (requires an OpenSRF login_session, so need to make this app's auth process use OpenSRF first)
   my $sql = 'SELECT u.id AS usr, u.first_given_name, u.family_name FROM actor.usr u
-    JOIN actor.card c ON c.usr = u.id WHERE u.home_ou = ? AND c.barcode = ?;';
+    JOIN actor.card c ON c.usr = u.id WHERE u.home_ou = ? AND c.barcode = ? AND u.deleted IS FALSE;';
   my $result = $q->lookup($sql, $self->ou, $self->barcode);
   if ($result) {
     $self->usrid($result->{usr});
