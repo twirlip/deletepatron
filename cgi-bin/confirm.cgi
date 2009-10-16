@@ -32,7 +32,7 @@ $session->login( [{error => 'NOT_LOGGED_IN'}] ) unless ($session->{cgisession}->
 
 my $ou = $session->{cgisession}->param('ou') || 0; # set this to authenticated user's OU? or more complex for multibranch?
 
-my @patrons; 
+my %patrons; 
 my @not_found;
 
 if (param()) {
@@ -44,7 +44,7 @@ if (param()) {
     if ($patron->retrieve()) {
       $patron->check_activity();
       $patron->check_fines();
-      push @patrons, $patron;
+      $patrons{$patron->barcode} = $patron;
     } else {
       push @not_found, $barcode;
     }
@@ -52,7 +52,7 @@ if (param()) {
 }
 
 # store patron info in session for future use (specifically, reporting on what has been deleted)
-$session->{cgisession}->param('patrons', \@patrons);
+$session->{cgisession}->param('patrons', \%patrons);
 $session->{cgisession}->param('not_found', \@not_found);
 
 print $cgi->header,
@@ -61,7 +61,7 @@ print $cgi->header,
 
 print $cgi->h2('To Be Deleted');
 
-if (!@patrons) {
+if (!%patrons) {
 
   print $cgi->p('No patrons to delete.');
 
@@ -71,7 +71,7 @@ if (!@patrons) {
   print $cgi->start_form( -method => 'POST', -action => 'delete.cgi' );
 
   my $rows; # array reference for patron data to be used by HTML::Template
-  foreach my $patron (@patrons) {
+  while (my ($barcode, $patron) = each (%patrons)) {
     my @msgs;
     my $checkbox = 'checked';
     if ( grep {'FAIL_ACTIVE_XACTS' eq $_} $patron->msgs ) {
