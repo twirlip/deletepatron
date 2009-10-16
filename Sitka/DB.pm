@@ -37,8 +37,13 @@ sub do {
   my $self = shift;
   my $sql = shift;
   my @params = @_;
-  my $rows_affected = $self->{dbh}->do($sql, @params);
+  my $rows_affected = $self->{dbh}->do($sql, {}, @params);
   return $rows_affected;
+}
+
+sub commit {
+  my $self = shift;
+  $self->{dbh}->do('COMMIT');
 }
 
 1; # perl is stupid.

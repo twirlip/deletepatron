@@ -77,13 +77,13 @@ sub delete_patron {
   my $self = shift;
   my $q = Sitka::DB->connect;
   # the following returns the number of rows affected, or undef if no rows were affected
-  my $usr_rows_updated = $q->{dbh}->do( q{
+  my $usr_rows_updated = $q->do( q{
       UPDATE actor.usr SET deleted = 't', active = 'f' FROM actor.card c 
       WHERE c.usr = actor.usr.id AND actor.usr.id = ? AND c.barcode = ?
-    }, {}, $self->{usrid}, $self->{barcode} );
+    }, $self->usrid, $self->barcode );
+  $q->commit;
   $self->msgs('USER_NOT_DELETED') unless ($usr_rows_updated);
-  #my $card_rows_deleted = $self->delete_card;
-  $q->{dbh}->do('COMMIT');
+  my $card_rows_deleted = $self->delete_card;
   return $usr_rows_updated;
 }
 
@@ -93,7 +93,8 @@ sub delete_card {
   # the following returns the number of rows affected, or undef if no rows were affected
   my $card_rows_deleted = $q->do( q{
       DELETE FROM actor.card WHERE usr = ? AND barcode = ?;
-    }, $self->usrid, $self->barcode);
+    }, $self->usrid, $self->barcode );
+  $q->commit;
   $self->msgs('CARD_NOT_DELETED') unless ($card_rows_deleted);
   return $card_rows_deleted;
 }
