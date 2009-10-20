@@ -43,8 +43,8 @@ sub authenticate {
     $self->initialize_session();
     $self->{cgisession}->param('_IS_LOGGED_IN', 1);
     $self->{authenticated} = 1;
-    # TODO: return a list of OUIDs for which user has permission to delete users
     $self->{cgisession}->param('ou', $usrdata->{home_ou});
+    $self->{cgisession}->param('staff', $usrdata);
   } 
   $self->{fail} = \@fail;
   return; 
@@ -55,7 +55,7 @@ sub check_password {
 
   # TODO: do this via OpenSRF API rather than direct DB lookup
   my $db = Sitka::DB->connect();
-  my $usrdata = $db->{dbh}->selectrow_hashref("SELECT id, usrname, passwd, home_ou FROM actor.usr WHERE usrname = ? and passwd = md5(?);", undef, ($usr, $pwd));
+  my $usrdata = $db->{dbh}->selectrow_hashref("SELECT id as usr_id, usrname, passwd, home_ou FROM actor.usr WHERE usrname = ? and passwd = md5(?);", undef, ($usr, $pwd));
   if ($usrdata) {
     return $usrdata;
   } else {

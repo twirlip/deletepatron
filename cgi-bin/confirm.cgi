@@ -28,6 +28,7 @@ $session->login( [{error => 'NOT_LOGGED_IN'}] ) unless ($session->{cgisession}->
 # FAIL_HAS_FINES     => Patron owes more than $0 in fines.
 
 my $ou = $session->{cgisession}->param('ou') || 0; # set this to authenticated user's OU? or more complex for multibranch?
+my $staff = $session->{cgisession}->param('staff');
 
 my %patrons; 
 my @not_found;
