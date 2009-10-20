@@ -65,7 +65,8 @@ sub check_password {
 }
 
 sub check_perms {
-  my ($self, $usr_id, $home_ou) = @_;
+  my ($usr_id, $home_ou) = @_;
+  #my ($self, $usr_id, $home_ou) = @_; # Perl 5.10 (or EG 1.6) seems to want $self as a param here, 5.8 (or EG 1.2) does not
 
   # make sure this user has permission to delete users
   OpenSRF::System->bootstrap_client( config_file => '/openils/conf/opensrf_core.xml');

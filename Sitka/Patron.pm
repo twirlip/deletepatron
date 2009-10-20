@@ -63,7 +63,7 @@ sub check_activity {
     my $result = $q->lookup($sql, $self->usrid);
     my $check_count = $result->{count};
     if ($check_count > 0) {
-      $self->$check = $check_count;
+      $self->{$check} = $check_count;
       $self->msgs('FAIL_ACTIVE_XACTS') unless ( grep {'FAIL_ACTIVE_XACTS' eq $_} $self->{msgs} );
     }
   }
