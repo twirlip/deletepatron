@@ -94,7 +94,7 @@ if (!%patrons) {
       checkbox   => ($checkbox ? "$checkbox=\"$checkbox\"" : undef),
       barcode    => $patron->barcode,
       patronname => join(', ', ($patron->familyname, $patron->givenname)),
-      msgs       => $cgi->div(join('<br />', @msgs)),
+      msgs       => $cgi->div( {-class=>'warning'}, join('<br />', @msgs) ),
     };
 
   }
