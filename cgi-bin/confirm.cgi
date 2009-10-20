@@ -31,6 +31,7 @@ my $ou = $session->{cgisession}->param('ou') || 0; # set this to authenticated u
 my $staff = $session->{cgisession}->param('staff');
 
 my %patrons; 
+my @cannot_delete;
 my @not_found;
 my @invalid;
 
@@ -41,9 +42,13 @@ if (param()) {
     my $barcode = shift @barcodes;
     my $patron = Sitka::Patron->new($barcode, $ou);
     if ($patron->retrieve()) {
-      $patron->check_activity();
-      $patron->check_fines();
-      $patrons{$patron->barcode} = $patron;
+      if ($patron->staff_can_delete($staff->{usr_id}, $patron->{ou})) {
+        $patron->check_activity();
+        $patron->check_fines();
+        $patrons{$patron->barcode} = $patron;
+      } else {
+        push @cannot_delete, $barcode;
+      }
     } else {
       push @not_found, $barcode;
     }
@@ -51,6 +56,7 @@ if (param()) {
 }
 
 # store patron info in session for future use (specifically, reporting on what has been deleted)
+$session->{cgisession}->param('cannot_delete', \@cannot_delete);
 $session->{cgisession}->param('patrons', \%patrons);
 $session->{cgisession}->param('not_found', \@not_found);
 $session->{cgisession}->param('invalid', \@invalid);
@@ -103,6 +109,7 @@ if (!%patrons) {
 }
 
 # list invalid barcodes and barcodes not found in system
+print $cgi->h2('Cannot Delete'), $cgi->p('You do not have the correct permissions to delete the following users:'), $cgi->pre( join("\n", @cannot_delete) ) if (@cannot_delete);
 print $cgi->h2('Not Found'), $cgi->p('The following barcodes were not found in Evergreen:'), $cgi->pre( join("\n", @not_found) ) if (@not_found);
 print $cgi->h2('Invalid Barcodes'), $cgi->p('The following barcodes were entered in an invalid format:'), $cgi->pre( join("\n", @invalid) ) if (@invalid);
 

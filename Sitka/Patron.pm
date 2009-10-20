@@ -41,6 +41,15 @@ sub retrieve {
   }
 }
 
+sub staff_can_delete {
+  my $self = shift;
+  my $staffid = shift;
+  my $ou = shift;
+  my $q = Sitka::DB->connect;
+  my $result = $q->lookup("SELECT permission.usr_has_perm(?,?,?);", $staffid, 'DELETE_USER', $ou); # query returns 't' or 'f'
+  return $result->{usr_has_perm};
+}
+
 # check for active circs and holds
 sub check_activity {
   my $self = shift;
