@@ -97,7 +97,9 @@ sub login {
   my $msgs = shift;
   my $cgi = CGI->new;
   print $cgi->header,
-        $cgi->start_html('Sitka Patron Deletions - Login'),
+        $cgi->start_html( -title => 'Sitka Patron Deletions - Login',
+                          -style => { -src => "../style.css" },
+                        ),
         $cgi->h1('Please Login');
   foreach my $msg (@{$msgs}) {
     while (my ($msgtype, $msgtext) = each %{$msg}) {

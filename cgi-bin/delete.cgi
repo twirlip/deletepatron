@@ -38,7 +38,11 @@ if ($cgi->param()) {
 }
 
 # report back on what we just did
-print $cgi->header, $cgi->start_html('Deletion Report'), $cgi->h1('Deletion Report');
+print $cgi->header,
+      $cgi->start_html( -title => 'Sitka Patron Deletions - Deletion Report',
+                        -style => { -src => "style.css" },
+                      ),
+      $cgi->h1('Deletion Report');
 print $cgi->h2('Deleted'),     $cgi->pre( @deleted ? join("\n",@deleted) : 'No patrons were deleted.' );
 print $cgi->h2('Not Deleted'), $cgi->pre(join("\n",@not_deleted)) if (@not_deleted);
 print $cgi->h2('Not Found'),   $cgi->pre(join("\n",@not_found))   if (@not_found);

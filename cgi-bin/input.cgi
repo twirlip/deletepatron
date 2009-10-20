@@ -23,7 +23,9 @@ if (!$session->{authenticated}) {
 
   # form for entering patron barcodes to delete
   print $session->{cgisession}->header(); # create cookie for session
-  print $cgi->start_html('Enter Patron Barcodes'),
+  print $cgi->start_html( -title => 'Sitka Patron Deletions - Enter Patron Barcodes',
+                          -style => { -src => "style.css" },
+                        ),
         $cgi->h1('Enter Patron Barcodes');
   print $cgi->start_form( -method=>'POST', -action=>'confirm.cgi');
   print $cgi->p('Please enter list of patron barcodes to be deleted, one per line.'),

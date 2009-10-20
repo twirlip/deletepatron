@@ -1,0 +1,30 @@
+body {
+	margin: 0 auto;
+	width: 790px;
+	font-family: sans;
+	font-size: 90%;
+}
+.warning {
+	color: red;
+}
+.confirm {
+	color: green;
+}
+table {
+	border: 1px solid #ccc;
+	padding: 5px;
+	margin-bottom: 10px;
+	width: 100%;
+}
+th {
+	text-align: left;
+}
+.patron {
+	margin-top: 5px;
+	border-top: 1px solid #ccc;
+}
+pre {
+	border: 1px solid #ccc;
+	background-color: #eee;
+	padding: 5px;
+}

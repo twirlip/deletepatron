@@ -62,7 +62,9 @@ $session->{cgisession}->param('not_found', \@not_found);
 $session->{cgisession}->param('invalid', \@invalid);
 
 print $cgi->header,
-      $cgi->start_html('Confirm Deletions'),
+      $cgi->start_html( -title => 'Sitka Patron Deletions - Confirm Deletions',
+                        -style => { -src => "style.css" },
+                      ),
       $cgi->h1('Confirm Deletions');
 
 print $cgi->h2('To Be Deleted');
@@ -94,7 +96,7 @@ if (!%patrons) {
       checkbox   => ($checkbox ? "$checkbox=\"$checkbox\"" : undef),
       barcode    => $patron->barcode,
       patronname => join(', ', ($patron->familyname, $patron->givenname)),
-      msgs       => $cgi->div( {-class=>'warning'}, join('<br />', @msgs) ),
+      msgs       => ( @msgs ? $cgi->div({-class=>'warning'}, join('<br />', @msgs)) : $cgi->div({-class=>'confirm'}, 'Ready to delete.') ),
     };
 
   }
