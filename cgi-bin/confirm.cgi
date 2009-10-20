@@ -80,12 +80,12 @@ if (!%patrons) {
   while (my ($barcode, $patron) = each (%patrons)) {
     my @msgs;
     my $checkbox = 'checked';
-    if ( grep {'FAIL_ACTIVE_XACTS' eq $_} $patron->msgs ) {
-      push @msgs, 'Patron has ', ($patron->circs || '0'), ' active circulations and ', ($patron->holds || '0'), ' active holds.';
+    if ( grep {'FAIL_ACTIVE_XACTS' eq $_} @{$patron->msgs} ) {
+      push @msgs, 'Patron has ' . ($patron->circs || '0') . ' active circulations and ' . ($patron->holds || '0') . ' active holds.';
       $checkbox = 'disabled';
     }
-    if ( grep {'FAIL_HAS_FINES' eq $_} $patron->msgs ) {
-      push @msgs, 'Patron has $', $patron->fines, ' in unpaid fines.';
+    if ( grep {'FAIL_HAS_FINES' eq $_} @{$patron->msgs} ) {
+      push @msgs, 'Patron has $' . $patron->fines . ' in unpaid fines.';
       undef $checkbox unless ($checkbox == 'disabled');
     }
 
