@@ -75,7 +75,7 @@ sub check_fines {
   my $result = $q->lookup("SELECT balance_owed FROM money.usr_summary WHERE usr = ? AND balance_owed > 0;", $self->{usrid});
   my $fines = $result->{balance_owed};
   if ($fines > 0) {
-    $self->fines = $fines;
+    $self->{fines} = $fines;
     $self->msgs('FAIL_HAS_FINES');
   }
 }
