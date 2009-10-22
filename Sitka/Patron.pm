@@ -55,7 +55,7 @@ sub check_activity {
   my $self = shift;
   my $q = Sitka::DB->connect;
   my %checks = (
-    'circs' => "SELECT count(*) AS count FROM action.circulation WHERE usr = ? AND xact_finish IS NULL;",
+    'circs' => "SELECT count(*) AS count FROM action.circulation WHERE usr = ? AND xact_finish IS NULL AND checkin_time IS NULL;",
     'holds' => "SELECT count(*) AS count FROM action.hold_request WHERE usr = ? AND cancel_time IS NULL AND fulfillment_time IS NULL AND checkin_time IS NULL;",
   );
   foreach my $check (keys (%checks)) {
