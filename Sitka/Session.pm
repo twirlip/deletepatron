@@ -27,7 +27,7 @@ sub initialize_session {
   # initialize existing CGI session ($sid) or create new CGI session if none exists
   $self->{cgisession} = new CGI::Session(undef, $sid, {Directory=>File::Spec->tmpdir}) or die CGI::Session->errstr;
   # don't bother with an _IS_LOGGED_IN flag, just expire the entire session after 10 minutes
-  $self->{cgisession}->expire('+10m');
+  $self->{cgisession}->expire('+15m');
   return;
 }
 
