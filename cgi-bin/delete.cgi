@@ -28,7 +28,13 @@ my @deleted;
 if ($cgi->param()) {
   foreach my $barcode ($cgi->param('delete[]')) {
     my $patron = $patrons->{$barcode};
-    my $usr_rows_updated = $patron->delete_patron();
+    if ($session->type eq 'DELETE_CARD') {
+      my $type = 'cards';
+      my $usr_rows_updated = $patron->delete_card();
+    } elsif ($session->type eq 'DELETE_PATRON') {
+      my $type = 'patrons';
+      my $usr_rows_updated = $patron->delete_patron();
+    }
     if ($usr_rows_updated) {
       push @deleted, $patron->barcode;
     } else {
@@ -43,7 +49,7 @@ print $cgi->header,
                         -style => { -src => "style.css" },
                       ),
       $cgi->h1('Deletion Report');
-print $cgi->h2('Deleted'),     $cgi->pre( @deleted ? join("\n",@deleted) : 'No patrons were deleted.' );
+print $cgi->h2(ucfirst($type) . ' Deleted'), $cgi->pre( @deleted ? join("\n",@deleted) : "No $type were deleted." );
 print $cgi->h2('Not Deleted'), $cgi->pre(join("\n",@not_deleted)) if (@not_deleted);
 print $cgi->h2('Not Found'),   $cgi->pre(join("\n",@not_found))   if (@not_found);
 print $cgi->h2('Invalid'),     $cgi->pre(join("\n",@invalid))     if (@invalid);

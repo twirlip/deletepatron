@@ -16,6 +16,7 @@ sub new {
   my $class = shift;
   my $self = {};
   bless $self, $class;
+  $self->{type} = undef;
   #my ($usr, $pwd) = @_;
   #return $self->authenticate($usr, $pwd) || undef;
   return $self;
@@ -78,6 +79,18 @@ sub check_perms {
   } else {
     return 1;
   }
+}
+
+# What type of session is this? (e.g. delete patrons, delete cards only)
+# Possible values:
+#   DELETE_PATRON (default)
+#   DELETE_CARD
+#   UNDELETE_PATRON
+sub type {
+  my ($self, $type) = @_;
+  my $type ||= 'DELETE_PATRON'; # default session type
+  $self->{cgisession}->param('type', $type);
+  return $self->{cgisession}->param('type');
 }
 
 # TODO: write a proper messaging system in Sitka.pm to handle fail() msgs

@@ -80,6 +80,16 @@ sub check_fines {
   }
 }
 
+# is the barcode we've been given the patron's primary card?
+sub check_primary_card {
+  my $self = shift;
+  my $q = Sitka::DB->connect;
+  my $result = $q->lookup("SELECT c.barcode FROM actor.card c JOIN actor.usr u ON u.card = c.id WHERE usr = ?;", $self->{usrid});
+  my $primary_card = $result->{barcode};
+  $self->msgs('FAIL_PRIMARY_CARD') if ($primary_card ne $self->{barcode});
+  return;
+}
+
 # delete a patron and the card with the given barcode
 # (other cards belonging to this user will not be affected)
 sub delete_patron {

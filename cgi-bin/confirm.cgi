@@ -37,14 +37,19 @@ my @invalid;
 
 if (param()) {
   die('No org unit specified.') unless ($ou);
+  $session->type('DELETE_CARD') if (param('delete_cards_only'));
   my @barcodes = clean_and_validate($cgi->param('barcodes'));
   while (@barcodes) {
     my $barcode = shift @barcodes;
     my $patron = Sitka::Patron->new($barcode, $ou);
     if ($patron->retrieve()) {
       if ($patron->staff_can_delete($staff->{usr_id}, $patron->{ou})) {
-        $patron->check_activity();
-        $patron->check_fines();
+        if ($session->type eq 'DELETE_CARD') {
+          $patron->check_primary_card();
+        } elsif ($session->type eq 'DELETE_PATRON') {
+          $patron->check_activity();
+          $patron->check_fines();
+        }
         $patrons{$patron->barcode} = $patron;
       } else {
         push @cannot_delete, $barcode;
@@ -88,7 +93,11 @@ if (!%patrons) {
     }
     if ( grep {'FAIL_HAS_FINES' eq $_} @{$patron->msgs} ) {
       push @msgs, 'Patron has $' . $patron->fines . ' in unpaid fines.';
-      undef $checkbox unless ($checkbox == 'disabled');
+      undef $checkbox unless ($checkbox eq 'disabled');
+    }
+    if ( grep {'FAIL_PRIMARY_CARD' eq $_} @{$patron->msgs} ) {
+      push @msgs, 'This is the patron\'s primary card.  Please give the patron a new card before deleting this one.';
+      $checkbox = 'disabled';
     }
 
     # TODO: eliminate HTML gobbledygook below

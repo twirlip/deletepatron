@@ -30,6 +30,7 @@ if (!$session->{authenticated}) {
   print $cgi->start_form( -method=>'POST', -action=>'confirm.cgi');
   print $cgi->p('Please enter list of patron barcodes to be deleted, one per line.'),
         $cgi->textarea('barcodes','',10,30);
+  print $cgi->checkbox( -name=>'delete_cards_only', -value=>'delete_cards_only', -selected=>0, -label=>"Delete cards only" );
   print $cgi->submit('submit','Submit');
   print $cgi->end_form();
   print $cgi->end_html();
