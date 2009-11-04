@@ -27,15 +27,16 @@ my @deleted;
 # delete selected patrons from database
 if ($cgi->param()) {
   foreach my $barcode ($cgi->param('delete[]')) {
+    my ($type, $rows_affected);
     my $patron = $patrons->{$barcode};
     if ($session->type eq 'DELETE_CARD') {
-      my $type = 'cards';
-      my $usr_rows_updated = $patron->delete_card();
+      $type = 'cards';
+      $rows_affected = $patron->delete_card();
     } elsif ($session->type eq 'DELETE_PATRON') {
-      my $type = 'patrons';
-      my $usr_rows_updated = $patron->delete_patron();
+      $type = 'patrons';
+      $rows_affected = $patron->delete_patron();
     }
-    if ($usr_rows_updated) {
+    if ($rows_affected) {
       push @deleted, $patron->barcode;
     } else {
       unshift @not_deleted, $patron->barcode . ( $patron->msgs ? ' (' . $patron->msgs . ')' : '' );

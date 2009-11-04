@@ -29,15 +29,17 @@ $session->login( [{error => 'NOT_LOGGED_IN'}] ) unless ($session->{cgisession}->
 
 my $ou = $session->{cgisession}->param('ou') || 0; # set this to authenticated user's OU? or more complex for multibranch?
 my $staff = $session->{cgisession}->param('staff');
+$session->{cgisession}->param('session_type', undef);
 
 my %patrons; 
 my @cannot_delete;
 my @not_found;
 my @invalid;
 
+$session->type( param('session_type') );
+
 if (param()) {
   die('No org unit specified.') unless ($ou);
-  $session->type('DELETE_CARD') if (param('delete_cards_only'));
   my @barcodes = clean_and_validate($cgi->param('barcodes'));
   while (@barcodes) {
     my $barcode = shift @barcodes;
@@ -76,7 +78,7 @@ print $cgi->h2('To Be Deleted');
 
 if (!%patrons) {
 
-  print $cgi->p('No patrons to delete.');
+  print $cgi->p('Nothing to delete.');
 
 } else {
 
@@ -101,26 +103,35 @@ if (!%patrons) {
     }
 
     # TODO: eliminate HTML gobbledygook below
+    $ready = 'Ready to delete';
+    $ready .= ' this card.' if ($session->type eq 'DELETE_CARD');
+    $ready .= ' this patron.' if ($session->type eq 'DELETE_PATRON');
     push @{$rows}, {
       checkbox   => ($checkbox ? "$checkbox=\"$checkbox\"" : undef),
       barcode    => $patron->barcode,
       patronname => join(', ', ($patron->familyname, $patron->givenname)),
-      msgs       => ( @msgs ? $cgi->div({-class=>'warning'}, join('<br />', @msgs)) : $cgi->div({-class=>'confirm'}, 'Ready to delete.') ),
+      msgs       => ( @msgs ? $cgi->div({-class=>'warning'}, join('<br />', @msgs)) : $cgi->div({-class=>'confirm'}, $ready) ),
     };
 
   }
 
   # print patron info with the magic of HTML::Template
   my $template = HTML::Template->new(filename => 'rows-confirm.tmpl');
-  $template->param(ROWS => $rows);
+  my $deletemsg = 'Use the checkboxes to indicate which ';
+  $deletemsg .= 'cards' if ($session->type eq 'DELETE_CARD');
+  $deletemsg .= 'patrons' if ($session->type eq 'DELETE_PATRON');
+  $deletemsg .= ' you want to delete.';
+  $template->param(ROWS => $rows, DELETEMSG => $deletemsg);
   print $template->output();
 
-  print $cgi->submit('submit','Delete Checked Patrons'),
+  $submit = 'Delete Checked Cards' if ($session->type eq 'DELETE_CARD');
+  $submit = 'Delete Checked Patrons' if ($session->type eq 'DELETE_PATRON');
+  print $cgi->submit('submit', $submit),
         $cgi->end_form();
 }
 
 # list invalid barcodes and barcodes not found in system
-print $cgi->h2('Cannot Delete'), $cgi->p('You do not have the correct permissions to delete the following users:'), $cgi->pre( join("\n", @cannot_delete) ) if (@cannot_delete);
+print $cgi->h2('Cannot Delete'), $cgi->p('You do not have the correct permissions to delete the following:'), $cgi->pre( join("\n", @cannot_delete) ) if (@cannot_delete);
 print $cgi->h2('Not Found'), $cgi->p('The following barcodes were not found in Evergreen:'), $cgi->pre( join("\n", @not_found) ) if (@not_found);
 print $cgi->h2('Invalid Barcodes'), $cgi->p('The following barcodes were entered in an invalid format:'), $cgi->pre( join("\n", @invalid) ) if (@invalid);
 

@@ -86,7 +86,7 @@ sub check_primary_card {
   my $q = Sitka::DB->connect;
   my $result = $q->lookup("SELECT c.barcode FROM actor.card c JOIN actor.usr u ON u.card = c.id WHERE usr = ?;", $self->{usrid});
   my $primary_card = $result->{barcode};
-  $self->msgs('FAIL_PRIMARY_CARD') if ($primary_card ne $self->{barcode});
+  $self->msgs('FAIL_PRIMARY_CARD') if ($primary_card eq $self->{barcode});
   return;
 }
 

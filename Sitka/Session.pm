@@ -87,10 +87,10 @@ sub check_perms {
 #   DELETE_CARD
 #   UNDELETE_PATRON
 sub type {
-  my ($self, $type) = @_;
-  my $type ||= 'DELETE_PATRON'; # default session type
-  $self->{cgisession}->param('type', $type);
-  return $self->{cgisession}->param('type');
+  my $self = shift;
+  my $type = shift || $self->{cgisession}->param('session_type') || 'DELETE_PATRON';
+  $self->{cgisession}->param('session_type', $type);
+  return $self->{cgisession}->param('session_type');
 }
 
 # TODO: write a proper messaging system in Sitka.pm to handle fail() msgs
