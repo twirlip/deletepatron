@@ -24,16 +24,21 @@ my @not_found = @{$session->{cgisession}->param('not_found')};
 my @invalid = @{$session->{cgisession}->param('invalid')};
 my @deleted;
 
+my $type;
+if ($session->type eq 'DELETE_CARD') {
+  $type = 'cards';
+} elsif ($session->type eq 'DELETE_PATRON') {
+  $type = 'patrons';
+}
+
 # delete selected patrons from database
 if ($cgi->param()) {
   foreach my $barcode ($cgi->param('delete[]')) {
-    my ($type, $rows_affected);
+    my $rows_affected;
     my $patron = $patrons->{$barcode};
     if ($session->type eq 'DELETE_CARD') {
-      $type = 'cards';
       $rows_affected = $patron->delete_card();
     } elsif ($session->type eq 'DELETE_PATRON') {
-      $type = 'patrons';
       $rows_affected = $patron->delete_patron();
     }
     if ($rows_affected) {
