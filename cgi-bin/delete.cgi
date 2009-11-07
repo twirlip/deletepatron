@@ -3,6 +3,7 @@
 use FindBin;
 use lib "$FindBin::Bin/..";
 use lib '/openils/lib/perl5';
+use OpenSRF::Utils::Logger;
 use CGI qw/:standard/;
 use CGI::Session qw/-ip-match/;
 use HTML::Template;
@@ -12,6 +13,8 @@ use Data::Dumper;
 
 my $cgi = CGI->new;
 my $session = Sitka::Session->new;
+
+my $logger = OpenSRF::Utils::Logger;
 
 # check for authorization (i.e. see if user has a valid cookie)
 my $sid = $cgi->cookie('CGISESSID') || undef;
@@ -48,6 +51,8 @@ if ($cgi->param()) {
     }
   }
 }
+
+$logger->info("DELETEPATRON: $type deleted: " . join(' ', @deleted));
 
 # report back on what we just did
 print $cgi->header,
