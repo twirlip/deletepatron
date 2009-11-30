@@ -15,9 +15,10 @@ sub connect {
   $db_name   = $settings->config_value(apps => 'open-ils.storage' => 'app_settings' => 'databases' => 'database' => 'db');
   $db_user   = $settings->config_value(apps => 'open-ils.storage' => 'app_settings' => 'databases' => 'database' => 'user');
   $db_pw     = $settings->config_value(apps => 'open-ils.storage' => 'app_settings' => 'databases' => 'database' => 'pw');
+  $db_port   = $settings->config_value(apps => 'open-ils.storage' => 'app_settings' => 'databases' => 'database' => 'port');
 
   # database connection
-  $dsn = "dbi:$db_driver:host=$db_host;dbname=$db_name";
+  $dsn = "dbi:$db_driver:host=$db_host;dbname=$db_name;port=$db_port";
   $dbh = DBI->connect($dsn,$db_user,$db_pw);
   $dbh->do("BEGIN;");
   $self->{dbh} = $dbh;
