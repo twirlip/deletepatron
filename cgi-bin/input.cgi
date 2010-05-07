@@ -22,7 +22,7 @@ if (!$session->{authenticated}) {
 } else {
 
   # form for entering patron barcodes to delete
-  print $session->{cgisession}->header(); # create cookie for session
+  print $session->{cgisession}->header(); # create cookie for session; TODO: how to integrate this with use of memcached?
   print $cgi->start_html( -title => 'Sitka Patron Deletions - Enter Patron Barcodes',
                           -style => { -src => "style.css" },
                         ),

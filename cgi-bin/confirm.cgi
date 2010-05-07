@@ -4,7 +4,6 @@ use FindBin;
 use lib "$FindBin::Bin/..";
 use lib '/openils/lib/perl5';
 use CGI qw/:standard/;
-use CGI::Session qw/-ip-match/;
 use HTML::Template;
 use Sitka::Session;
 use Sitka::Patron;
@@ -16,9 +15,9 @@ my $session = Sitka::Session->new;
 # check for authorization (i.e. see if user has a valid cookie)
 # NB: we need to ensure that this cookie is valid specifically for patron deletions
 # (can't just accept any cookie on the given domain)
-my $sid = $cgi->cookie('CGISESSID') || undef;
-$session->initialize_session($sid);
-$session->login( [{error => 'NOT_LOGGED_IN'}] ) unless ($session->{cgisession}->param('_IS_LOGGED_IN'));
+my $sid = $cgi->cookie('CGISESSID') || undef; # TODO: this assumes we're still using a cookie to store the session id, despite our use of memcached
+$session->retrieve_session($sid);
+$session->login() unless $session->{authenticated};
 
 # Message codes:
 # OK                 => Patron can be deleted.
@@ -27,15 +26,17 @@ $session->login( [{error => 'NOT_LOGGED_IN'}] ) unless ($session->{cgisession}->
 # FAIL_ACTIVE_XACTS  => Patron has active circulations or holds.
 # FAIL_HAS_FINES     => Patron owes more than $0 in fines.
 
-my $ou = $session->{cgisession}->param('ou') || 0; # set this to authenticated user's OU? or more complex for multibranch?
-my $staff = $session->{cgisession}->param('staff');
-$session->{cgisession}->param('session_type', undef);
+my $ou = $session->{ou} || 0; # set this to authenticated user's OU? or more complex for multibranch?
+my $staff = $session->{staff};
 
 my %patrons; 
 my @cannot_delete;
 my @not_found;
 my @invalid;
 
+# ignore the existing session type, if any, and use the type from CGI params
+# (i.e. if the DELETE_CARD box was checked on input.cgi, use DELETE_CARD as our session type)
+$session->{session_type} = undef;
 $session->type( param('session_type') );
 
 if (param()) {
@@ -63,10 +64,10 @@ if (param()) {
 }
 
 # store patron info in session for future use (specifically, reporting on what has been deleted)
-$session->{cgisession}->param('cannot_delete', \@cannot_delete);
-$session->{cgisession}->param('patrons', \%patrons);
-$session->{cgisession}->param('not_found', \@not_found);
-$session->{cgisession}->param('invalid', \@invalid);
+$session->{cannot_delete} = \@cannot_delete;
+$session->{patrons} = \%patrons;
+$session->{not_found} = \@not_found;
+$session->{invalid} = \@invalid;
 
 print $cgi->header,
       $cgi->start_html( -title => 'Sitka Patron Deletions - Confirm Deletions',

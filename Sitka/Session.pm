@@ -3,12 +3,18 @@ package Sitka::Session;
 use FindBin;
 use lib "$FindBin::Bin/..";
 use lib '/openils/lib/perl5/';
-use CGI;
-use CGI::Session qw/-ip-match/;
+#use CGI;
+#use CGI::Session qw/-ip-match/;
 use Sitka::DB;
 use OpenSRF::System;
 use OpenILS::Application::AppUtils;
 use File::Spec;
+use DateTime;
+use OpenSRF::Utils::Cache;
+
+my $prefix = "DELETEPATRON"; # Prefix for caching values
+my $cache;
+my $cache_timeout = 300;
 
 our @fail;
 
@@ -17,18 +23,41 @@ sub new {
   my $self = {};
   bless $self, $class;
   $self->{type} = undef;
-  #my ($usr, $pwd) = @_;
-  #return $self->authenticate($usr, $pwd) || undef;
+  $self->{authenticated} = undef;
+  $self->{ou} = undef;
+  $self->{staff} = undef;
+  $self->{cannot_delete} = undef;
+  $self->{patrons} = undef;
+  $self->{not_found} = undef;
+  $self->{invalid} = undef;
   return $self;
 }
 
 sub initialize_session {
   my $self = shift;
-  my $sid = shift || undef;
-  # initialize existing CGI session ($sid) or create new CGI session if none exists
-  $self->{cgisession} = new CGI::Session(undef, $sid, {Directory=>File::Spec->tmpdir}) or die CGI::Session->errstr;
-  # don't bother with an _IS_LOGGED_IN flag, just expire the entire session after 10 minutes
-  $self->{cgisession}->expire('+15m');
+  my $usr = shift;
+
+  # set up a memcached session for subsequent use
+  $cache = OpenSRF::Utils::Cache->new('global');
+  my $ckey = "$prefix-$usr-" . DateTime->now;
+  $cache->put_cache($ckey, \$self, $cache_timeout);
+  return;
+}
+
+sub retrieve_session {
+  my $ckey = shift;
+  my $cached_session = $cache->get_cache($ckey) || undef;
+  if ($cached_session) {
+    # TODO: this is ugly and can surely be done more elegantly
+    $self->{type} = $cached_session->{type};
+    $self->{authenticated} = $cached_session->{authenticated};
+    $self->{ou} = $cached_session->{ou};
+    $self->{staff} = $cached_session->{staff};
+    $self->{cannot_delete} = $cached_session->{cannot_delete};
+    $self->{patrons} = $cached_session->{patrons};
+    $self->{not_found} = $cached_session->{not_found};
+    $self->{invalid} = $cached_session->{invalid};
+  }
   return;
 }
 
@@ -41,11 +70,10 @@ sub authenticate {
   }
   if ($has_perms) {
     # user is authenticated!
-    $self->initialize_session();
-    $self->{cgisession}->param('_IS_LOGGED_IN', 1);
+    $self->initialize_session($usr);
     $self->{authenticated} = 1;
-    $self->{cgisession}->param('ou', $usrdata->{home_ou});
-    $self->{cgisession}->param('staff', $usrdata);
+    $self->{ou} = $usrdata->{home_ou};
+    $self->{staff} = $usrdata;
   } 
   $self->{fail} = \@fail;
   return; 
@@ -88,9 +116,9 @@ sub check_perms {
 #   UNDELETE_PATRON
 sub type {
   my $self = shift;
-  my $type = shift || $self->{cgisession}->param('session_type') || 'DELETE_PATRON';
-  $self->{cgisession}->param('session_type', $type);
-  return $self->{cgisession}->param('session_type');
+  my $type = shift || 'DELETE_PATRON';
+  $self->{session_type} = $type unless defined $self->{session_type};
+  return $self->{session_type};
 }
 
 # TODO: write a proper messaging system in Sitka.pm to handle fail() msgs
