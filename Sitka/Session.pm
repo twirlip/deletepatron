@@ -3,7 +3,7 @@ package Sitka::Session;
 use FindBin;
 use lib "$FindBin::Bin/..";
 use lib '/openils/lib/perl5/';
-#use CGI;
+use CGI;
 #use CGI::Session qw/-ip-match/;
 use Sitka::DB;
 use OpenSRF::System;
