@@ -17,8 +17,8 @@ my $session = Sitka::Session->new;
 my $logger = OpenSRF::Utils::Logger;
 
 # check for authorization (i.e. see if user has a valid cookie)
-my $sid = $cgi->cookie('CGISESSID') || undef; # TODO: this assumes we're still using a cookie to store the session id, despite our use of memcached
-$session->retrieve_session($sid);
+my $ckey = $cgi->param('ckey') || undef; # TODO: this assumes we're still using a cookie to store the session id, despite our use of memcached
+$session->retrieve_session($ckey);
 $session->login() unless $session->{authenticated};
 
 my $patrons = $session->{patrons};

@@ -22,6 +22,7 @@ sub new {
   my $class = shift;
   my $self = {};
   bless $self, $class;
+  $self->{ckey} = undef;
   $self->{type} = undef;
   $self->{authenticated} = undef;
   $self->{ou} = undef;
@@ -41,6 +42,7 @@ sub initialize_session {
   $cache = OpenSRF::Utils::Cache->new('global');
   my $ckey = "$prefix-$usr-" . DateTime->now;
   $cache->put_cache($ckey, \$self, $cache_timeout);
+  $self->{ckey} = $ckey;
   return;
 }
 
@@ -49,6 +51,7 @@ sub retrieve_session {
   my $cached_session = $cache->get_cache($ckey) || undef;
   if ($cached_session) {
     # TODO: this is ugly and can surely be done more elegantly
+    $self->{type} = $ckey;
     $self->{type} = $cached_session->{type};
     $self->{authenticated} = $cached_session->{authenticated};
     $self->{ou} = $cached_session->{ou};

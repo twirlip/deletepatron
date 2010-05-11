@@ -15,8 +15,8 @@ my $session = Sitka::Session->new;
 # check for authorization (i.e. see if user has a valid cookie)
 # NB: we need to ensure that this cookie is valid specifically for patron deletions
 # (can't just accept any cookie on the given domain)
-my $sid = $cgi->cookie('CGISESSID') || undef; # TODO: this assumes we're still using a cookie to store the session id, despite our use of memcached
-$session->retrieve_session($sid);
+my $ckey = $cgi->param('ckey') || undef; # TODO: this assumes we're still using a cookie to store the session id, despite our use of memcached
+$session->retrieve_session($ckey);
 $session->login() unless $session->{authenticated};
 
 # Message codes:
@@ -37,7 +37,7 @@ my @invalid;
 # ignore the existing session type, if any, and use the type from CGI params
 # (i.e. if the DELETE_CARD box was checked on input.cgi, use DELETE_CARD as our session type)
 $session->{session_type} = undef;
-$session->type( param('session_type') );
+$session->type( $cgi->param('session_type') );
 
 if (param()) {
   die('No org unit specified.') unless ($ou);
@@ -127,6 +127,7 @@ if (!%patrons) {
 
   $submit = 'Delete Checked Cards' if ($session->type eq 'DELETE_CARD');
   $submit = 'Delete Checked Patrons' if ($session->type eq 'DELETE_PATRON');
+  print $cgi->hidden('ckey', $ckey);
   print $cgi->submit('submit', $submit),
         $cgi->end_form();
 }
