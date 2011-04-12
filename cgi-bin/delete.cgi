@@ -17,14 +17,14 @@ my $session = Sitka::Session->new;
 my $logger = OpenSRF::Utils::Logger;
 
 # check for authorization (i.e. see if user has a valid cookie)
-my $sid = $cgi->cookie('CGISESSID') || undef;
-$session->initialize_session($sid);
-$session->login( [{error => 'NOT_LOGGED_IN'}] ) unless ($session->{cgisession}->param('_IS_LOGGED_IN'));
+my $ckey = $cgi->param('ckey') || undef; # TODO: this assumes we're still using a cookie to store the session id, despite our use of memcached
+$session->retrieve_session($ckey);
+$session->login() unless $session->{authenticated};
 
-my $patrons = $session->{cgisession}->param('patrons');
-my @not_deleted = @{$session->{cgisession}->param('cannot_delete')};
-my @not_found = @{$session->{cgisession}->param('not_found')};
-my @invalid = @{$session->{cgisession}->param('invalid')};
+my $patrons = $session->{patrons};
+my @not_deleted = @{$session->{cannot_delete}};
+my @not_found = @{$session->{not_found}};
+my @invalid = @{$session->{invalid}};
 my @deleted;
 
 my $type;

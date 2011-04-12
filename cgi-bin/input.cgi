@@ -14,15 +14,14 @@ my $pwd = $cgi->param('pwd');
 my $session = Sitka::Session->new;
 $session->authenticate($usr, $pwd);
 
-if (!$session->{authenticated}) {
+if (!$session->{authtoken} || !$session->{ckey}) {
 
-  push my @msgs, { error => 'OU_NOT_FOUND' };
-  Sitka::Session->login(\@msgs);
+  Sitka::Session->login();
 
 } else {
 
+  my $ckey = $session->{ckey};
   # form for entering patron barcodes to delete
-  print $session->{cgisession}->header(); # create cookie for session
   print $cgi->start_html( -title => 'Sitka Patron Deletions - Enter Patron Barcodes',
                           -style => { -src => "style.css" },
                         ),
@@ -31,6 +30,7 @@ if (!$session->{authenticated}) {
   print $cgi->p('Please enter list of patron barcodes to be deleted, one per line.'),
         $cgi->textarea('barcodes','',10,30);
   print $cgi->checkbox( -name=>'session_type', -value=>'DELETE_CARD', -selected=>0, -label=>"Delete cards only" );
+  print $cgi->hidden('ckey',$ckey);
   print $cgi->submit('submit','Submit');
   print $cgi->end_form();
   print $cgi->end_html();

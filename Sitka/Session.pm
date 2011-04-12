@@ -4,59 +4,91 @@ use FindBin;
 use lib "$FindBin::Bin/..";
 use lib '/openils/lib/perl5/';
 use CGI;
-use CGI::Session qw/-ip-match/;
-use Sitka::DB;
+#use CGI::Session qw/-ip-match/;
+#use Sitka::DB;
 use OpenSRF::System;
 use OpenILS::Application::AppUtils;
 use File::Spec;
+use DateTime;
+use OpenSRF::Utils::Cache;
+
+my $prefix = "DELETEPATRON"; # Prefix for caching values
+my $cache;
+my $cache_timeout = 300;
 
 our @fail;
+
+OpenSRF::System->bootstrap_client( config_file => '/openils/conf/opensrf_core.xml');
 
 sub new {
   my $class = shift;
   my $self = {};
   bless $self, $class;
+  $self->{ckey} = undef;
   $self->{type} = undef;
-  #my ($usr, $pwd) = @_;
-  #return $self->authenticate($usr, $pwd) || undef;
+  $self->{authtoken} = undef;
+  $self->{ou} = undef;
+  $self->{staff} = undef;
+  $self->{cannot_delete} = undef;
+  $self->{patrons} = undef;
+  $self->{not_found} = undef;
+  $self->{invalid} = undef;
   return $self;
 }
 
 sub initialize_session {
   my $self = shift;
-  my $sid = shift || undef;
-  # initialize existing CGI session ($sid) or create new CGI session if none exists
-  $self->{cgisession} = new CGI::Session(undef, $sid, {Directory=>File::Spec->tmpdir}) or die CGI::Session->errstr;
-  # don't bother with an _IS_LOGGED_IN flag, just expire the entire session after 10 minutes
-  $self->{cgisession}->expire('+15m');
+  my $usr = shift;
+
+  # set up a memcached session for subsequent use
+  $cache = OpenSRF::Utils::Cache->new('global');
+  my $ckey = "$prefix-$usr-" . DateTime->now;
+  $cache->put_cache($ckey, \$self, $cache_timeout);
+  $self->{ckey} = $ckey;
+  return;
+}
+
+sub retrieve_session {
+  my $ckey = shift;
+  my $cached_session = $cache->get_cache($ckey) || undef;
+  if ($cached_session) {
+    # TODO: this is ugly and can surely be done more elegantly
+    $self->{type} = $ckey;
+    $self->{type} = $cached_session->{type};
+    $self->{authtoken} = $cached_session->{authtoken};
+    $self->{ou} = $cached_session->{ou};
+    $self->{staff} = $cached_session->{staff};
+    $self->{cannot_delete} = $cached_session->{cannot_delete};
+    $self->{patrons} = $cached_session->{patrons};
+    $self->{not_found} = $cached_session->{not_found};
+    $self->{invalid} = $cached_session->{invalid};
+  }
   return;
 }
 
 sub authenticate {
   my ($self, $usr, $pwd) = @_;
-  my $has_perms = undef; # unset unless user has DELETE_USER permissions
-  my $usrdata = check_password($usr, $pwd);
+  my $authtoken = oils_login($usr, $pwd);
+  my $usrdata = $self->get_usrdata($authtoken, $usr);
   if ($usrdata) {
-    $has_perms = check_perms($usrdata->{usr_id}, $usrdata->{home_ou});
+    if ($self->check_perms($usrdata->{usr_id}, $usrdata->{home_ou})) {
+      # user is authenticated!
+      $self->initialize_session($usr);
+      $self->{authtoken} = $authtoken;
+      $self->{ou} = $usrdata->{home_ou};
+      $self->{staff} = $usrdata;
+    } 
   }
-  if ($has_perms) {
-    # user is authenticated!
-    $self->initialize_session();
-    $self->{cgisession}->param('_IS_LOGGED_IN', 1);
-    $self->{authenticated} = 1;
-    $self->{cgisession}->param('ou', $usrdata->{home_ou});
-    $self->{cgisession}->param('staff', $usrdata);
-  } 
   $self->{fail} = \@fail;
   return; 
 }
 
-sub check_password {
-  my ($usr, $pwd) = @_; # no $self param here, and yet it's needed by check_perms() ... I don't get it.
-
-  # TODO: do this via OpenSRF API rather than direct DB lookup
-  my $db = Sitka::DB->connect();
-  my $usrdata = $db->{dbh}->selectrow_hashref("SELECT id as usr_id, usrname, passwd, home_ou FROM actor.usr WHERE usrname = ? and passwd = md5(?);", undef, ($usr, $pwd));
+sub get_usrdata {
+  my ($self, $authtoken, $usrname) = @_;
+  my $usrdata = OpenSRF::AppSession
+      ->create("open-ils.actor")
+      ->request( 'open-ils.actor.user.stage.retrieve.by_username', $authtoken, $usrname )
+      ->gather(1);
   if ($usrdata) {
     return $usrdata;
   } else {
@@ -66,13 +98,9 @@ sub check_password {
 }
 
 sub check_perms {
-  my ($usr_id, $home_ou) = @_;
-  #my ($self, $usr_id, $home_ou) = @_; # Perl 5.10 (or EG 1.6) seems to want $self as a param here, 5.8 (or EG 1.2) does not
-
-  # make sure this user has permission to delete users
-  OpenSRF::System->bootstrap_client( config_file => '/openils/conf/opensrf_core.xml');
+  my ($self, $usr_id, $home_ou) = @_;
   my $apputils = OpenILS::Application::AppUtils;
-  my $p = $apputils->check_perms($usr_id, $home_ou, 'DELETE_USER');
+  my $p = $apputils->check_perms($usr_id, $home_ou, 'FLAG_USER_AS_DELETED');
   if ($p) {
     push @fail, { error => 'MISSING_PERMS: ' . $p->{textcode} . ": " . $p->{desc} };
     return;
@@ -88,9 +116,9 @@ sub check_perms {
 #   UNDELETE_PATRON
 sub type {
   my $self = shift;
-  my $type = shift || $self->{cgisession}->param('session_type') || 'DELETE_PATRON';
-  $self->{cgisession}->param('session_type', $type);
-  return $self->{cgisession}->param('session_type');
+  my $type = shift || 'DELETE_PATRON';
+  $self->{session_type} = $type unless defined $self->{session_type};
+  return $self->{session_type};
 }
 
 # TODO: write a proper messaging system in Sitka.pm to handle fail() msgs
@@ -128,4 +156,32 @@ sub login {
   exit;
 }
 
+# The following is from OpenILS::WWW::Proxy by way of dbs's Evergreen development tutorial
+sub oils_login {
+    my( $username, $password, $type ) = @_;
+
+    $type |= "staff";
+    my $nametype = 'username';
+    $nametype = 'barcode' if ($username =~ /^\d+$/o);
+
+    my $seed = OpenSRF::AppSession
+        ->create("open-ils.auth")
+        ->request( 'open-ils.auth.authenticate.init', $username )
+        ->gather(1);
+
+    return undef unless $seed;
+
+    my $response = OpenSRF::AppSession
+        ->create("open-ils.auth")
+        ->request( 'open-ils.auth.authenticate.complete', {
+        $nametype => $username,
+            password => md5_hex($seed . md5_hex($password)),
+            type => $type
+        })
+        ->gather(1);
+
+    return undef unless $response;
+
+    return $response->{payload}->{authtoken};
+}
 1; # perl is stupid.

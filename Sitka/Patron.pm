@@ -1,6 +1,10 @@
 #!/usr/bin/perl
 package Sitka::Patron;
-use Sitka::DB;
+#use Sitka::DB;
+use OpenSRF::System;
+use OpenILS::Utils::CStoreEditor;
+
+OpenSRF::System->bootstrap_client( config_file => '/openils/conf/opensrf_core.xml');
 
 sub new {
   my $class = shift;
@@ -11,7 +15,8 @@ sub new {
   bless $self;
   $self->{barcode}     = $barcode;
   $self->{ou}          = $ou;
-  $self->{usrid}       = 0;
+  $self->{usr_id}      = 0;
+  $self->{card_id}     = 0;
   $self->{givenname}   = undef;
   $self->{familyname}  = undef;
   $self->{circs}       = 0;
@@ -23,17 +28,23 @@ sub new {
 
 # get patron data from DB
 sub retrieve {
-  my $self = shift;
-  my $q = Sitka::DB->connect;
-  # TODO: use open-ils.actor.user.retrieve OpenSRF call instead of direct DB query 
-  # (requires an OpenSRF login_session, so need to make this app's auth process use OpenSRF first)
-  my $sql = 'SELECT u.id AS usr, u.first_given_name, u.family_name FROM actor.usr u
-    JOIN actor.card c ON c.usr = u.id WHERE c.barcode = ? AND u.deleted IS FALSE;';
-  my $result = $q->lookup($sql, $self->barcode);
-  if ($result) {
-    $self->usrid($result->{usr});
-    $self->givenname($result->{first_given_name});
-    $self->familyname($result->{family_name});
+  my ($self, $authtoken, $barcode) = shift;
+  my $usr = OpenSRF::AppSession
+    ->create('open-ils.actor')
+    ->request( 'open-ils.actor.user.fleshed.retrieve_by_barcode', $authtoken, $barcode )
+    ->gather(1);
+  my $e = OpenILS::Utils::CStoreEditor->new;
+  my $query = { 
+    select => { ac => ['id'] }, 
+    from => 'ac', 
+    where => { usr => $usr->id, barcode => $barcode }
+  };
+  my $card = $e->json_query($query);
+  if ($usr) {
+    $self->usr_id($usr->id);
+    $self->card_id($card->id);
+    $self->givenname($usr->first_given_name);
+    $self->familyname($usr->family_name);
     return $self;
   } else {
     $self->msgs('FAIL_NOT_FOUND');
@@ -41,27 +52,36 @@ sub retrieve {
   }
 }
 
-sub staff_can_delete {
-  my $self = shift;
-  my $staffid = shift;
-  my $ou = shift;
-  my $q = Sitka::DB->connect;
-  my $result = $q->lookup("SELECT permission.usr_has_perm(?,?,?);", $staffid, 'DELETE_USER', $ou); # query returns 't' or 'f'
-  return $result->{usr_has_perm};
-}
-
 # check for active circs and holds
 sub check_activity {
   my $self = shift;
-  my $q = Sitka::DB->connect;
+  # TODO: use real OpenSRF calls instead of json_query
+  my $e = OpenILS::Utils::CStoreEditor->new;
   my %checks = (
-    'circs' => "SELECT count(*) AS count FROM action.circulation WHERE usr = ? AND xact_finish IS NULL AND checkin_time IS NULL;",
-    'holds' => "SELECT count(*) AS count FROM action.hold_request WHERE usr = ? AND cancel_time IS NULL AND fulfillment_time IS NULL AND checkin_time IS NULL;",
+    circs => {
+      select => { circ => ['id'] },
+      from => 'circ',
+      where => {
+        usr => $self->usr_id,
+        xact_finish => undef,
+        checkin_time => undef
+      }
+    },
+    holds => {
+      select => ahr => ['id'],
+      from => 'ahr',
+      where => {
+        usr => $self->usr_id,
+        cancel_time => undef,
+        fulfillment_time => undef,
+        checkin_time => undef
+      }
+    }
   );
   foreach my $check (keys (%checks)) {
-    my $sql = $checks{$check};
-    my $result = $q->lookup($sql, $self->usrid);
-    my $check_count = $result->{count};
+    my $query = $checks{$check};
+    my $result = $e->json_query($query);
+    my $check_count = scalar @$result;
     if ($check_count > 0) {
       $self->{$check} = $check_count;
       $self->msgs('FAIL_ACTIVE_XACTS') unless ( grep {'FAIL_ACTIVE_XACTS' eq $_} $self->{msgs} );
@@ -71,9 +91,10 @@ sub check_activity {
 
 sub check_fines {
   my $self = shift;
-  my $q = Sitka::DB->connect;
-  my $result = $q->lookup("SELECT balance_owed FROM money.usr_summary WHERE usr = ? AND balance_owed > 0;", $self->{usrid});
-  my $fines = $result->{balance_owed};
+  my $fines = OpenSRF::AppSession
+    ->create('open-ils.storage')
+    ->request( 'open-ils.storage.actor.user.total_owed', $self->usr_id )
+    ->gather(1);
   if ($fines > 0) {
     $self->{fines} = $fines;
     $self->msgs('FAIL_HAS_FINES');
@@ -83,9 +104,23 @@ sub check_fines {
 # is the barcode we've been given the patron's primary card?
 sub check_primary_card {
   my $self = shift;
-  my $q = Sitka::DB->connect;
-  my $result = $q->lookup("SELECT c.barcode FROM actor.card c JOIN actor.usr u ON u.card = c.id WHERE usr = ?;", $self->{usrid});
-  my $primary_card = $result->{barcode};
+  my $e = OpenILS::Utils::CStoreEditor->new;
+  my $query = {
+    select => { ac => ['barcode'] },
+    from => 'ac',
+    join => {
+      au => {
+        field => 'card',
+        fkey => 'id'
+      }
+    },
+    where => {
+      '+ac' {
+        'usr' => $self->usr_id
+      }
+    }
+  };
+  my $primary_card = $e->json_query($query);
   $self->msgs('FAIL_PRIMARY_CARD') if ($primary_card eq $self->{barcode});
   return;
 }
@@ -93,27 +128,22 @@ sub check_primary_card {
 # delete a patron and the card with the given barcode
 # (other cards belonging to this user will not be affected)
 sub delete_patron {
-  my $self = shift;
-  my $q = Sitka::DB->connect;
-  # the following returns the number of rows affected, or undef if no rows were affected
-  my $usr_rows_updated = $q->do( q{
-      UPDATE actor.usr SET deleted = 't', active = 'f' FROM actor.card c 
-      WHERE c.usr = actor.usr.id AND actor.usr.id = ? AND c.barcode = ?
-    }, $self->usrid, $self->barcode );
-  $q->commit;
+  my ($self, $authtoken) = shift;
+  my $usr_rows_updated = OpenSRF::AppSession
+    ->create('open-ils.actor')
+    ->request('open-ils.actor.user.flag_as_deleted', $authtoken, $self->{usr_id})
+    ->gather(1);
   $self->msgs('USER_NOT_DELETED') unless ($usr_rows_updated);
   my $card_rows_deleted = $self->delete_card;
   return $usr_rows_updated;
 }
 
 sub delete_card {
-  my $self = shift;
-  my $q = Sitka::DB->connect;
-  # the following returns the number of rows affected, or undef if no rows were affected
-  my $card_rows_deleted = $q->do( q{
-      DELETE FROM actor.card WHERE usr = ? AND barcode = ?;
-    }, $self->usrid, $self->barcode );
-  $q->commit;
+  my ($self, $authtoken) = shift;
+  my $usr_rows_updated = OpenSRF::AppSession
+    ->create('open-ils.actor')
+    ->request('open-ils.actor.user.delete_card', $authtoken, $self->{card_id})
+    ->gather(1);
   $self->msgs('CARD_NOT_DELETED') unless ($card_rows_deleted);
   return $card_rows_deleted;
 }
@@ -130,10 +160,16 @@ sub ou {
   return $self->{ou};
 }
 
-sub usrid {
+sub usr_id {
   my $self = shift;
-  if (@_) { $self->{usrid} = shift; }
-  return $self->{usrid};
+  if (@_) { $self->{usr_id} = shift; }
+  return $self->{usr_id};
+}
+
+sub card_id {
+  my $self = shift;
+  if (@_) { $self->{card_id} = shift; }
+  return $self->{card_id};
 }
 
 sub givenname {
