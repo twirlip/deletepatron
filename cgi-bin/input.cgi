@@ -16,12 +16,13 @@ $session->authenticate($usr, $pwd);
 
 if (!$session->{authtoken} || !$session->{ckey}) {
 
-  Sitka::Session->login();
+  $session->login();
 
 } else {
 
   my $ckey = $session->{ckey};
   # form for entering patron barcodes to delete
+  print $cgi->header;
   print $cgi->start_html( -title => 'Sitka Patron Deletions - Enter Patron Barcodes',
                           -style => { -src => "style.css" },
                         ),

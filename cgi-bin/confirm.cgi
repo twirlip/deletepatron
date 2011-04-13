@@ -12,11 +12,18 @@ use Data::Dumper;
 my $cgi = CGI->new;
 my $session = Sitka::Session->new;
 
+print $cgi->header,
+      $cgi->start_html( -title => 'Sitka Patron Deletions - Confirm Deletions',
+                        -style => { -src => "style.css" },
+                      ),
+      $cgi->h1('Confirm Deletions');
+
 # check for authorization (i.e. see if user has a valid cookie)
 # NB: we need to ensure that this cookie is valid specifically for patron deletions
 # (can't just accept any cookie on the given domain)
-my $ckey = $cgi->param('ckey') || undef; # TODO: this assumes we're still using a cookie to store the session id, despite our use of memcached
+my $ckey = $cgi->param('ckey'); 
 $session->retrieve_session($ckey);
+
 $session->login() unless $session->{authtoken};
 
 # Message codes:
@@ -45,7 +52,7 @@ if (param()) {
   while (@barcodes) {
     my $barcode = shift @barcodes;
     my $patron = Sitka::Patron->new($barcode, $ou);
-    if ($patron->retrieve()) {
+    if ($patron->retrieve($session->{authtoken})) {
       if ($session->check_perms($staff->{usr_id}, $patron->{ou})) {
         if ($session->type eq 'DELETE_CARD') {
           $patron->check_primary_card();
@@ -68,12 +75,6 @@ $session->{cannot_delete} = \@cannot_delete;
 $session->{patrons} = \%patrons;
 $session->{not_found} = \@not_found;
 $session->{invalid} = \@invalid;
-
-print $cgi->header,
-      $cgi->start_html( -title => 'Sitka Patron Deletions - Confirm Deletions',
-                        -style => { -src => "style.css" },
-                      ),
-      $cgi->h1('Confirm Deletions');
 
 print $cgi->h2('To Be Deleted');
 

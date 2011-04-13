@@ -3,6 +3,8 @@ package Sitka::Patron;
 #use Sitka::DB;
 use OpenSRF::System;
 use OpenILS::Utils::CStoreEditor;
+use OpenSRF::Utils::Logger qw/$logger/;
+use Data::Dumper;
 
 OpenSRF::System->bootstrap_client( config_file => '/openils/conf/opensrf_core.xml');
 
@@ -28,23 +30,28 @@ sub new {
 
 # get patron data from DB
 sub retrieve {
-  my ($self, $authtoken, $barcode) = shift;
-  my $usr = OpenSRF::AppSession
-    ->create('open-ils.actor')
-    ->request( 'open-ils.actor.user.fleshed.retrieve_by_barcode', $authtoken, $barcode )
-    ->gather(1);
+  my ($self, $authtoken) = @_;
+    
+  # TODO: find a better way to handle the json_query results
   my $e = OpenILS::Utils::CStoreEditor->new;
-  my $query = { 
-    select => { ac => ['id'] }, 
-    from => 'ac', 
-    where => { usr => $usr->id, barcode => $barcode }
-  };
-  my $card = $e->json_query($query);
+  my @card_search = $e->json_query({
+    select => { ac => ['id','usr'] },
+    from  => 'ac',
+    where => { barcode => $self->{barcode} }
+  });
+  my $card = $card_search[0][0];
+  my @usr_search = $e->json_query({ 
+    select => { au => ['id','first_given_name','family_name','home_ou'] },
+    from  => 'au',
+    where => { id => $card->{usr} }
+  });
+  my $usr = $usr_search[0][0];
+
   if ($usr) {
-    $self->usr_id($usr->id);
-    $self->card_id($card->id);
-    $self->givenname($usr->first_given_name);
-    $self->familyname($usr->family_name);
+    $self->{usr_id} = $usr->{id};
+    $self->{card_id} = $card->{id};
+    $self->{givenname} = $usr->{first_given_name};
+    $self->{familyname} = $usr->{family_name};
     return $self;
   } else {
     $self->msgs('FAIL_NOT_FOUND');
@@ -55,26 +62,24 @@ sub retrieve {
 # check for active circs and holds
 sub check_activity {
   my $self = shift;
-  # TODO: use real OpenSRF calls instead of json_query
   my $e = OpenILS::Utils::CStoreEditor->new;
   my %checks = (
     circs => {
       select => { circ => ['id'] },
       from => 'circ',
       where => {
-        usr => $self->usr_id,
+        usr => $self->{usr_id},
         xact_finish => undef,
         checkin_time => undef
       }
     },
     holds => {
-      select => ahr => ['id'],
+      select => { ahr => ['id'] },
       from => 'ahr',
       where => {
-        usr => $self->usr_id,
+        usr => $self->{usr_id},
         cancel_time => undef,
-        fulfillment_time => undef,
-        checkin_time => undef
+        fulfillment_time => undef
       }
     }
   );
@@ -115,7 +120,7 @@ sub check_primary_card {
       }
     },
     where => {
-      '+ac' {
+      '+ac' => {
         'usr' => $self->usr_id
       }
     }

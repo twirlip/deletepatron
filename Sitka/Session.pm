@@ -4,21 +4,24 @@ use FindBin;
 use lib "$FindBin::Bin/..";
 use lib '/openils/lib/perl5/';
 use CGI;
+use Digest::MD5 qw/md5_hex/;
 #use CGI::Session qw/-ip-match/;
 #use Sitka::DB;
 use OpenSRF::System;
 use OpenILS::Application::AppUtils;
+use OpenSRF::Utils::Logger qw/$logger/;
 use File::Spec;
 use DateTime;
 use OpenSRF::Utils::Cache;
+use Data::Dumper;
+
+OpenSRF::System->bootstrap_client( config_file => '/openils/conf/opensrf_core.xml');
 
 my $prefix = "DELETEPATRON"; # Prefix for caching values
-my $cache;
+my $cache = OpenSRF::Utils::Cache->new('global');
 my $cache_timeout = 300;
 
 our @fail;
-
-OpenSRF::System->bootstrap_client( config_file => '/openils/conf/opensrf_core.xml');
 
 sub new {
   my $class = shift;
@@ -41,27 +44,27 @@ sub initialize_session {
   my $usr = shift;
 
   # set up a memcached session for subsequent use
-  $cache = OpenSRF::Utils::Cache->new('global');
   my $ckey = "$prefix-$usr-" . DateTime->now;
-  $cache->put_cache($ckey, \$self, $cache_timeout);
   $self->{ckey} = $ckey;
+  my $cache_href;
+  foreach my $k (keys %$self) {
+    $cache_href->{$k} = $self->{$k};
+  }
+  my @cache_content = ($cache_href);
+  $cache->put_cache($ckey, \@cache_content, $cache_timeout);
   return;
 }
 
 sub retrieve_session {
-  my $ckey = shift;
-  my $cached_session = $cache->get_cache($ckey) || undef;
+  my ($self, $ckey) = @_;
+  my $cache_content = $cache->get_cache($ckey) || undef;
+  my $cached_session = shift @$cache_content;
   if ($cached_session) {
-    # TODO: this is ugly and can surely be done more elegantly
-    $self->{type} = $ckey;
-    $self->{type} = $cached_session->{type};
-    $self->{authtoken} = $cached_session->{authtoken};
-    $self->{ou} = $cached_session->{ou};
-    $self->{staff} = $cached_session->{staff};
-    $self->{cannot_delete} = $cached_session->{cannot_delete};
-    $self->{patrons} = $cached_session->{patrons};
-    $self->{not_found} = $cached_session->{not_found};
-    $self->{invalid} = $cached_session->{invalid};
+    foreach my $k (keys %$cached_session) {
+      $self->{$k} = $cached_session->{$k};
+    }
+  } else {
+    $logger->error("Could not retrieve cached session with key $ckey");
   }
   return;
 }
@@ -69,29 +72,38 @@ sub retrieve_session {
 sub authenticate {
   my ($self, $usr, $pwd) = @_;
   my $authtoken = oils_login($usr, $pwd);
-  my $usrdata = $self->get_usrdata($authtoken, $usr);
+  my $usrdata = $self->get_usrdata($usr);
   if ($usrdata) {
-    if ($self->check_perms($usrdata->{usr_id}, $usrdata->{home_ou})) {
-      # user is authenticated!
-      $self->initialize_session($usr);
+    my $has_perms = $self->check_perms($usrdata->{usr_id}, $usrdata->{home_ou});
+    if ($has_perms) {
       $self->{authtoken} = $authtoken;
       $self->{ou} = $usrdata->{home_ou};
       $self->{staff} = $usrdata;
+      $self->initialize_session($usr);
     } 
   }
   $self->{fail} = \@fail;
+  $logger->info("user $usr is authenticated!");
   return; 
 }
 
 sub get_usrdata {
-  my ($self, $authtoken, $usrname) = @_;
-  my $usrdata = OpenSRF::AppSession
-      ->create("open-ils.actor")
-      ->request( 'open-ils.actor.user.stage.retrieve.by_username', $authtoken, $usrname )
-      ->gather(1);
-  if ($usrdata) {
+  my ($self, $usrname) = @_;
+  my $e = OpenILS::Utils::CStoreEditor->new;
+  my $query = {
+    select => { au => ['id','home_ou'] },
+    from   => 'au',
+    where  => { usrname => $usrname }
+  };
+  my @result = $e->json_query($query);
+  if (@result) {
+    # This is admittedly ridiculous, but it works.
+    my $usr_id = $result[0][0]->{id};
+    my $home_ou = $result[0][0]->{home_ou};
+    my $usrdata = { usr_id => $usr_id, home_ou => $home_ou };
     return $usrdata;
   } else {
+    $logger->error("no usrdata found for $usrname");
     push @fail, { error => "INVALID_LOGIN: username = $usr, password = $pwd" };
     return;
   }
@@ -135,7 +147,7 @@ sub fail {
 }
 
 sub login {
-  my $msgs = shift;
+  my ($self, $msgs) = @_;
   my $cgi = CGI->new;
   print $cgi->header,
         $cgi->start_html( -title => 'Sitka Patron Deletions - Login',
