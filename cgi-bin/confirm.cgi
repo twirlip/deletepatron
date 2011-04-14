@@ -75,6 +75,7 @@ $session->{cannot_delete} = \@cannot_delete;
 $session->{patrons} = \%patrons;
 $session->{not_found} = \@not_found;
 $session->{invalid} = \@invalid;
+$session->save_session();
 
 print $cgi->h2('To Be Deleted');
 
@@ -110,8 +111,8 @@ if (!%patrons) {
     $ready .= ' this patron.' if ($session->type eq 'DELETE_PATRON');
     push @{$rows}, {
       checkbox   => ($checkbox ? "$checkbox=\"$checkbox\"" : undef),
-      barcode    => $patron->barcode,
-      patronname => join(', ', ($patron->familyname, $patron->givenname)),
+      barcode    => $patron->{barcode},
+      patronname => join(', ', ($patron->{familyname}, $patron->{givenname})),
       msgs       => ( @msgs ? $cgi->div({-class=>'warning'}, join('<br />', @msgs)) : $cgi->div({-class=>'confirm'}, $ready) ),
     };
 

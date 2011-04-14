@@ -19,13 +19,20 @@ my $logger = OpenSRF::Utils::Logger;
 # check for authorization (i.e. see if user has a valid cookie)
 my $ckey = $cgi->param('ckey') || undef; # TODO: this assumes we're still using a cookie to store the session id, despite our use of memcached
 $session->retrieve_session($ckey);
-$session->login() unless $session->{authenticated};
+$session->login() unless $session->{authtoken};
 
 my $patrons = $session->{patrons};
 my @not_deleted = @{$session->{cannot_delete}};
 my @not_found = @{$session->{not_found}};
 my @invalid = @{$session->{invalid}};
 my @deleted;
+my @unchecked;
+
+print $cgi->header,
+      $cgi->start_html( -title => 'Sitka Patron Deletions - Deletion Report',
+                        -style => { -src => "style.css" },
+                      ),
+      $cgi->h1('Deletion Report');
 
 my $type;
 if ($session->type eq 'DELETE_CARD') {
@@ -37,14 +44,15 @@ if ($session->type eq 'DELETE_CARD') {
 # delete selected patrons from database
 if ($cgi->param()) {
   foreach my $barcode ($cgi->param('delete[]')) {
-    my $rows_affected;
+    my $result;
     my $patron = $patrons->{$barcode};
     if ($session->type eq 'DELETE_CARD') {
-      $rows_affected = $patron->delete_card();
+      $result = $patron->delete_card();
     } elsif ($session->type eq 'DELETE_PATRON') {
-      $rows_affected = $patron->delete_patron();
+      $result = $patron->delete_patron();
     }
-    if ($rows_affected) {
+    if ($result) {
+      print Dumper $result;
       push @deleted, $patron->barcode;
     } else {
       unshift @not_deleted, $patron->barcode . ( $patron->msgs ? ' (' . $patron->msgs . ')' : '' );
@@ -55,11 +63,6 @@ if ($cgi->param()) {
 $logger->info("DELETEPATRON: $type deleted: " . join(' ', @deleted));
 
 # report back on what we just did
-print $cgi->header,
-      $cgi->start_html( -title => 'Sitka Patron Deletions - Deletion Report',
-                        -style => { -src => "style.css" },
-                      ),
-      $cgi->h1('Deletion Report');
 print $cgi->h2(ucfirst($type) . ' Deleted'), $cgi->pre( @deleted ? join("\n",@deleted) : "No $type were deleted." );
 print $cgi->h2('Not Deleted'), $cgi->pre(join("\n",@not_deleted)) if (@not_deleted);
 print $cgi->h2('Not Found'),   $cgi->pre(join("\n",@not_found))   if (@not_found);

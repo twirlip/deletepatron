@@ -133,24 +133,26 @@ sub check_primary_card {
 # delete a patron and the card with the given barcode
 # (other cards belonging to this user will not be affected)
 sub delete_patron {
-  my ($self, $authtoken) = shift;
-  my $usr_rows_updated = OpenSRF::AppSession
+  my $self = shift;
+  my $usr_updated = OpenSRF::AppSession
     ->create('open-ils.actor')
-    ->request('open-ils.actor.user.flag_as_deleted', $authtoken, $self->{usr_id})
+    ->request('open-ils.actor.user.flag_as_deleted', $self->{authtoken}, $self->{usr_id})
     ->gather(1);
-  $self->msgs('USER_NOT_DELETED') unless ($usr_rows_updated);
-  my $card_rows_deleted = $self->delete_card;
-  return $usr_rows_updated;
+  $logger->info("result of flag_as_deleted AppSession call: $usr_updated");
+  $self->msgs('USER_NOT_DELETED') unless ($usr_updated);
+  $self->delete_card;
+  return $usr_updated;
 }
 
 sub delete_card {
-  my ($self, $authtoken) = shift;
-  my $usr_rows_updated = OpenSRF::AppSession
+  my $self = shift;
+  my $card_deleted = OpenSRF::AppSession
     ->create('open-ils.actor')
-    ->request('open-ils.actor.user.delete_card', $authtoken, $self->{card_id})
+    ->request('open-ils.actor.user.delete_card', $self->{authtoken}, $self->{card_id})
     ->gather(1);
-  $self->msgs('CARD_NOT_DELETED') unless ($card_rows_deleted);
-  return $card_rows_deleted;
+  $logger->info("result of flag_as_deleted AppSession call: $card_deleted");
+  $self->msgs('CARD_NOT_DELETED') unless ($card_deleted);
+  return $card_deleted;
 }
 
 sub barcode {
