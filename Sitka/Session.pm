@@ -18,7 +18,6 @@ use Data::Dumper;
 OpenSRF::System->bootstrap_client( config_file => '/openils/conf/opensrf_core.xml');
 
 my $prefix = "DELETEPATRON"; # Prefix for caching values
-my $cache = OpenSRF::Utils::Cache->new('global');
 my $cache_timeout = 300;
 
 our @fail;
@@ -40,23 +39,29 @@ sub new {
 }
 
 sub initialize_session {
-  my $self = shift;
-  my $usr = shift;
-
-  # set up a memcached session for subsequent use
+  my ($self, $usr) = @_;
   my $ckey = "$prefix-$usr-" . DateTime->now;
   $self->{ckey} = $ckey;
+  $self->save_session();
+  return;
+}
+
+sub save_session {
+  my $self = shift;
+  my $ckey = shift || $self->{ckey};
+  my $cache = OpenSRF::Utils::Cache->new('global');
+  $cache->delete_cache($ckey) if ($cache->get_cache($ckey));
   my $cache_href;
   foreach my $k (keys %$self) {
     $cache_href->{$k} = $self->{$k};
   }
   my @cache_content = ($cache_href);
   $cache->put_cache($ckey, \@cache_content, $cache_timeout);
-  return;
 }
 
 sub retrieve_session {
   my ($self, $ckey) = @_;
+  my $cache = OpenSRF::Utils::Cache->new('global');
   my $cache_content = $cache->get_cache($ckey) || undef;
   my $cached_session = shift @$cache_content;
   if ($cached_session) {
