@@ -32,6 +32,7 @@ sub new {
   $self->{ou} = undef;
   $self->{staff} = undef;
   $self->{cannot_delete} = undef;
+  $self->{usr_is_active} = undef;
   $self->{patrons} = undef;
   $self->{not_found} = undef;
   $self->{invalid} = undef;
@@ -156,7 +157,7 @@ sub login {
   my $cgi = CGI->new;
   print $cgi->header,
         $cgi->start_html( -title => 'Sitka Patron Deletions - Login',
-                          -style => { -src => "../style.css" },
+                          -style => { -src => "style.css" },
                         ),
         $cgi->h1('Please Login');
   foreach my $msg (@{$msgs}) {

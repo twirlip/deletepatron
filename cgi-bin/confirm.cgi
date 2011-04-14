@@ -38,6 +38,7 @@ my $staff = $session->{staff};
 
 my %patrons; 
 my @cannot_delete;
+my @usr_is_active;
 my @not_found;
 my @invalid;
 
@@ -61,6 +62,7 @@ if (param()) {
           $patron->check_fines();
         }
         $patrons{$patron->barcode} = $patron;
+        push @usr_is_active, $barcode if (grep { $_ =~ /FAIL/ } @{$patron->msgs});
       } else {
         push @cannot_delete, $barcode;
       }
@@ -72,6 +74,7 @@ if (param()) {
 
 # store patron info in session for future use (specifically, reporting on what has been deleted)
 $session->{cannot_delete} = \@cannot_delete;
+$session->{usr_is_active} = \@usr_is_active;
 $session->{patrons} = \%patrons;
 $session->{not_found} = \@not_found;
 $session->{invalid} = \@invalid;
