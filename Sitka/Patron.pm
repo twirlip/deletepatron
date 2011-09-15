@@ -125,7 +125,7 @@ sub check_primary_card {
       }
     }
   };
-  my $primary_card = $e->json_query($query);
+  my $primary_card = $e->json_query($query)->[0]->{barcode};
   $self->msgs('FAIL_PRIMARY_CARD') if ($primary_card eq $self->{barcode});
   return;
 }
