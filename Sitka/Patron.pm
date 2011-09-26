@@ -111,12 +111,13 @@ sub check_primary_card {
   my $self = shift;
   my $e = OpenILS::Utils::CStoreEditor->new;
   my $query = {
-    select => { ac => ['barcode'] },
-    from => 'ac',
-    join => {
-      au => {
-        field => 'card',
-        fkey => 'id'
+    'select' => { 'ac' => ['barcode'] },
+    'from' => {
+      'au' => {
+        'ac' => {
+          'fkey' => 'card',
+          'field' => 'id'
+        }
       }
     },
     where => {
