@@ -2,7 +2,7 @@
 # delete.cgi - delete patrons from database (based on checks in confirm.cgi) and report results
 use FindBin;
 use lib "$FindBin::Bin/..";
-use lib '/openils/lib/perl5';
+#use lib '/openils/lib/perl5';
 use OpenSRF::Utils::Logger;
 use CGI qw/:standard/;
 use CGI::Session qw/-ip-match/;
@@ -52,10 +52,11 @@ if ($cgi->param()) {
     } elsif ($session->type eq 'DELETE_PATRON') {
       $result = $patron->delete_patron($session->{authtoken});
     }
-    if ($result) {
+    $logger->info("DELETEPATRON: result of deletion attempt: " . Dumper $result);
+    if ($result == 1) {
       push @deleted, $patron->barcode;
     } else {
-      unshift @not_deleted, $patron->barcode . ( $patron->msgs ? ' (' . $patron->msgs . ')' : '' );
+      unshift @$not_deleted, $patron->barcode . ( $patron->msgs ? ' (' . join(", ", @{$patron->msgs}) . ')' : '' );
     }
   }
 }

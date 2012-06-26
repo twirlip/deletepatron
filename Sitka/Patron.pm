@@ -139,8 +139,8 @@ sub delete_patron {
     ->create('open-ils.actor')
     ->request('open-ils.actor.user.flag_as_deleted', $authtoken, $self->{usr_id})
     ->gather(1);
-  $logger->info("result of flag_as_deleted AppSession call: $usr_updated");
-  $self->msgs('USER_NOT_DELETED') unless ($usr_updated);
+  $logger->info("result of flag_as_deleted AppSession call: " . Dumper $usr_updated);
+  $self->msgs('USER_NOT_DELETED') unless ($usr_updated == 1);
   $self->delete_card($authtoken);
   return $usr_updated;
 }
@@ -151,8 +151,8 @@ sub delete_card {
     ->create('open-ils.actor')
     ->request('open-ils.actor.user.delete_card', $authtoken, $self->{card_id})
     ->gather(1);
-  $logger->info("result of flag_as_deleted AppSession call: $card_deleted");
-  $self->msgs('CARD_NOT_DELETED') unless ($card_deleted);
+  $logger->info("result of flag_as_deleted AppSession call: " . Dumper $card_deleted);
+  $self->msgs('CARD_NOT_DELETED') unless ($card_deleted == 1);
   return $card_deleted;
 }
 

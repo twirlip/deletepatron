@@ -2,7 +2,7 @@
 package Sitka::Session;
 use FindBin;
 use lib "$FindBin::Bin/..";
-use lib '/openils/lib/perl5/';
+#use lib '/openils/lib/perl5/';
 use CGI;
 use Digest::MD5 qw/md5_hex/;
 #use CGI::Session qw/-ip-match/;
@@ -81,6 +81,7 @@ sub authenticate {
   my $usrdata = $self->get_usrdata($usr);
   if ($usrdata) {
     my $has_perms = $self->check_perms($usrdata->{usr_id}, $usrdata->{home_ou});
+    $logger->info("DELETEPATRON: result of user $usr perm check during authentication: " . Dumper $has_perms);
     if ($has_perms) {
       $self->{authtoken} = $authtoken;
       $self->{ou} = $usrdata->{home_ou};
@@ -119,6 +120,7 @@ sub check_perms {
   my ($self, $usr_id, $home_ou) = @_;
   my $apputils = OpenILS::Application::AppUtils;
   my $p = $apputils->check_perms($usr_id, $home_ou, 'FLAG_USER_AS_DELETED');
+  $logger->info("DELETEPATRON: result of perm check for user $usr_id at org unit $home_ou: " . Dumper $p);
   if ($p) {
     push @fail, { error => 'MISSING_PERMS: ' . $p->{textcode} . ": " . $p->{desc} };
     return;

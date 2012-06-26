@@ -2,7 +2,7 @@
 # confirm.cgi - retrieve patron info, check for activity, and confirm that we want to delete 'em
 use FindBin;
 use lib "$FindBin::Bin/..";
-use lib '/openils/lib/perl5';
+#use lib '/openils/lib/perl5';
 use CGI qw/:standard/;
 use HTML::Template;
 use Sitka::Session;
