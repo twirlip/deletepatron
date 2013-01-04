@@ -159,7 +159,8 @@ sub login {
         $cgi->start_html( -title => 'Sitka Patron Deletions - Login',
                           -style => { -src => "style.css" },
                         ),
-        $cgi->h1('Please Login');
+        $cgi->h1('Patron Deletion Tool'),
+        $cgi->h2('Please Login');
   foreach my $msg (@{$msgs}) {
     while (my ($msgtype, $msgtext) = each %{$msg}) {
       print $cgi->div({-class=>$msgtype},$msgtext);
